@@ -1,0 +1,30 @@
+{
+  "comment": "Wire reply shapes captured by driving the real extension/background.js dispatch() with a realistic ogiZ0b response. Account resource identifiers, browser tab IDs and signed URL query values are synthetic. Preserve this sanitization when regenerating with the local harness. Includes a successful image with one mock signed asset and an rpc_rejected image with sanitized diagnostics.",
+  "success": {
+    "type": "reply",
+    "id": "12345678-1234-1234-1234-123456789abd",
+    "result": {
+      "scope": {"tab_id": 7, "origin": "https://flow.google.com", "project_id": "00000000-0000-4000-8000-000000000010", "document_id": "DOC1"},
+      "state": "completed",
+      "assets": [{"media_id": "12345678-1234-1234-1234-123456789abd", "kind": "image", "url": "https://flow-content.google/image/12345678-1234-1234-1234-123456789abd?Expires=0&KeyName=synthetic-test-key&Signature=synthetic-test-signature"}]
+    }
+  },
+  "rejected": {
+    "type": "reply",
+    "id": "12345678-1234-1234-1234-123456789abd",
+    "result": {
+      "scope": {"tab_id": 7, "origin": "https://flow.google.com", "project_id": "00000000-0000-4000-8000-000000000010", "document_id": "DOC1"},
+      "state": "submitted_unverified",
+      "error": "rpc_rejected",
+      "diagnostics": {
+        "rpc": "ogiZ0b",
+        "http_status": 200,
+        "chunks": 1,
+        "envelopes": 1,
+        "rpc_code": 8,
+        "phase": "parse",
+        "rpc_error_shape": {"type": "array", "length": 1, "items": ["number"]}
+      }
+    }
+  }
+}

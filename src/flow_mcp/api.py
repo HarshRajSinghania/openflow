@@ -1,0 +1,264 @@
+import argparse
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import Any
+
+from fastapi import FastAPI, HTTPException
+from pydantic import ValidationError
+
+from flow_mcp.bridge import bridge, load_secret
+from flow_mcp.jobs import Jobs
+from flow_mcp.manager import BridgeError, Manager
+from flow_mcp.models import StrictModel, TabId
+from flow_mcp.operations import (
+    Identifier,
+    ImageInput,
+    ImageUpscaleInput,
+    UploadInput,
+    VideoInput,
+    VideoUpscaleInput,
+)
+from flow_mcp.pairing import Pairings
+from flow_mcp.service import Operations, upload_input
+
+
+def error_status(error: Exception) -> tuple[int, str]:
+    if isinstance(error, BridgeError):
+        return 409, str(error)
+    if isinstance(error, ValueError | ValidationError):
+        return 400, str(error)[:240] or "invalid_request"
+    return 500, "internal_error"
+
+
+def create_app(manager: Manager, port: int, jobs: Jobs | None = None) -> FastAPI:
+    operations = Operations(manager, jobs if jobs is not None else Jobs())
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        async with bridge(manager, port):
+            yield None
+
+    app = FastAPI(title="OpenFlow API", version="0.1.0", lifespan=lifespan)
+
+    def fail(error: Exception) -> HTTPException:
+        status, message = error_status(error)
+        return HTTPException(status_code=status, detail=message)
+
+    @app.get("/health")
+    async def health() -> dict[str, object]:
+        return {"ok": True, "connections": len(manager.sessions)}
+
+    @app.get("/connections")
+    async def connections() -> dict[str, object]:
+        return {
+            "connections": [
+                {
+                    "connection_id": session.id,
+                    "connected_at": session.connected_at,
+                }
+                for session in manager.sessions.values()
+            ],
+            "pending_pairings": manager.pairings.listed(),
+        }
+
+    @app.get("/pairings")
+    async def pairings() -> dict[str, object]:
+        return {"pending_pairings": manager.pairings.listed()}
+
+    @app.post("/pairings/{pairing_id}/approve")
+    async def approve(pairing_id: str) -> dict[str, object]:
+        try:
+            return await manager.pairings.approve(pairing_id)
+        except Exception as error:
+            raise fail(error) from None
+
+    @app.get("/connections/{connection_id}")
+    async def snapshot(connection_id: str) -> dict[str, object]:
+        try:
+            return await manager.snapshot(connection_id)
+        except Exception as error:
+            raise fail(error) from None
+
+    class SelectBody(StrictModel):
+        tab_id: TabId
+
+    @app.post("/connections/{connection_id}/select")
+    async def select(connection_id: str, body: SelectBody) -> dict[str, object]:
+        try:
+            return await manager.select(connection_id, body.tab_id)
+        except Exception as error:
+            raise fail(error) from None
+
+    @app.get("/connections/{connection_id}/account")
+    async def account(connection_id: str, refresh: bool = False) -> dict[str, object]:
+        try:
+            return await manager.account(connection_id, refresh)
+        except Exception as error:
+            raise fail(error) from None
+
+    class PreviewBody(StrictModel):
+        connection_id: Identifier
+        confirm: bool = False
+        preview_id: Identifier | None = None
+        diagnostics: bool = False
+
+    @app.post("/projects/preview")
+    @app.post("/projects")
+    async def create_preview(body: PreviewBody) -> dict[str, object]:
+        try:
+            return await operations.create_project(
+                body.connection_id, body.confirm, body.preview_id, body.diagnostics
+            )
+        except Exception as error:
+            raise fail(error) from None
+
+    class ImageBody(StrictModel):
+        connection_id: Identifier
+        project_id: Identifier
+        input: ImageInput
+        confirm: bool = False
+        preview_id: Identifier | None = None
+
+    class VideoBody(StrictModel):
+        connection_id: Identifier
+        project_id: Identifier
+        input: VideoInput
+        confirm: bool = False
+        preview_id: Identifier | None = None
+
+    class ImageUpscaleBody(StrictModel):
+        connection_id: Identifier
+        project_id: Identifier
+        input: ImageUpscaleInput
+        confirm: bool = False
+        preview_id: Identifier | None = None
+
+    class VideoUpscaleBody(StrictModel):
+        connection_id: Identifier
+        project_id: Identifier
+        input: VideoUpscaleInput
+        confirm: bool = False
+        preview_id: Identifier | None = None
+
+    async def submit(
+        operation: str, body: ImageBody | VideoBody | ImageUpscaleBody | VideoUpscaleBody
+    ) -> dict[str, object]:
+        try:
+            return await operations.submit(
+                operation,
+                body.connection_id,
+                body.project_id,
+                body.input,
+                body.confirm,
+                body.preview_id,
+            )
+        except Exception as error:
+            raise fail(error) from None
+
+    @app.post("/images", tags=["generation"])
+    async def image(body: ImageBody) -> dict[str, object]:
+        return await submit("generate_image", body)
+
+    @app.post("/videos", tags=["generation"])
+    async def video(body: VideoBody) -> dict[str, object]:
+        return await submit("generate_video", body)
+
+    @app.post("/images/upscale", tags=["generation"])
+    async def upscale_image(body: ImageUpscaleBody) -> dict[str, object]:
+        return await submit("upscale_image", body)
+
+    @app.post("/videos/upscale", tags=["generation"])
+    async def upscale_video(body: VideoUpscaleBody) -> dict[str, object]:
+        return await submit("upscale_video", body)
+
+    class UploadBody(StrictModel):
+        connection_id: Identifier
+        project_id: Identifier
+        file_path: str | None = None
+        data_base64: str | None = None
+        name: str = "upload.png"
+        confirm: bool = False
+        preview_id: Identifier | None = None
+
+    @app.post("/uploads")
+    async def upload(body: UploadBody) -> dict[str, object]:
+        try:
+            value: UploadInput = upload_input(body.file_path, body.data_base64, body.name)
+            return await operations.submit(
+                "upload",
+                body.connection_id,
+                body.project_id,
+                value,
+                body.confirm,
+                body.preview_id,
+            )
+        except Exception as error:
+            raise fail(error) from None
+
+    @app.get("/jobs/{job_id}")
+    async def job(
+        job_id: str, connection_id: str, project_id: str, refresh: bool = False
+    ) -> dict[str, object]:
+        try:
+            return await operations.get(job_id, connection_id, project_id, refresh)
+        except Exception as error:
+            raise fail(error) from None
+
+    class DownloadBody(StrictModel):
+        connection_id: Identifier
+        project_id: Identifier
+        destination: str
+        asset_index: TabId = 0
+
+    @app.post("/jobs/{job_id}/download")
+    async def download(job_id: str, body: DownloadBody) -> dict[str, object]:
+        try:
+            return await operations.download(
+                job_id,
+                body.connection_id,
+                body.project_id,
+                body.destination,
+                body.asset_index,
+            )
+        except Exception as error:
+            raise fail(error) from None
+
+    return app
+
+
+def main() -> None:
+    import os
+
+    import uvicorn
+
+    parser = argparse.ArgumentParser(prog="openflow-api")
+    parser.add_argument("--port", type=int, default=9233)
+    base = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / ".local" / "share")))
+    parser.add_argument("--pairing-dir", type=Path, default=base / "openflow")
+    parser.add_argument("--init-pairing", action="store_true")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--api-port", type=int, default=8100)
+    args: Any = parser.parse_args()
+    if not 1024 <= args.port <= 65535 or args.port == 9222:
+        parser.error("port must be 1024..65535, excluding 9222")
+    if not 1024 <= args.api_port <= 65535:
+        parser.error("api-port must be 1024..65535")
+    try:
+        secret = ""
+        if args.init_pairing or (args.pairing_dir / "secret").exists():
+            secret = load_secret(args.pairing_dir)
+        if not args.init_pairing:
+            args.pairing_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+            app = create_app(
+                Manager(secret, pairings=Pairings(args.pairing_dir)),
+                args.port,
+                Jobs(args.pairing_dir / "jobs.sqlite3"),
+            )
+            uvicorn.run(app, host=args.host, port=args.api_port, log_level="warning")
+    except Exception:
+        parser.exit(1, "openflow-api: startup failed; check pairing file and ports.\n")
+
+
+if __name__ == "__main__":
+    main()

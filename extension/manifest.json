@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "OpenFlow local bridge",
+  "version": "0.2.0",
+  "minimum_chrome_version": "116",
+  "permissions": ["storage", "tabs", "scripting", "alarms"],
+  "host_permissions": ["https://flow.google.com/*", "https://labs.google/*"],
+  "background": {"service_worker": "background.js", "type": "module"},
+  "action": {"default_popup": "popup.html"},
+  "content_scripts": [
+    {
+      "matches": ["https://flow.google.com/*", "https://labs.google/*"],
+      "js": ["hijack_bypass.js"],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": false
+    }
+  ],
+  "content_security_policy": {"extension_pages": "script-src 'self'; object-src 'self'; connect-src ws://127.0.0.1:9233"}
+}

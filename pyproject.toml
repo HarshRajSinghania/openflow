@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "openflow"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+  "mcp>=1.26,<2",
+  "websockets>=15,<16",
+  "pydantic>=2.11,<3",
+  "httpx>=0.28,<1",
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.30,<1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10", "pytest-asyncio>=1,<2", "ruff>=0.12,<1", "mypy>=1.15,<2"]
+
+[project.scripts]
+openflow = "flow_mcp.server:main"
+openflow-api = "flow_mcp.api:main"
+flow-mcp = "flow_mcp.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/flow_mcp"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src"]
+
+[tool.flow-mcp.checks]
+test = "python -m pytest"
+lint = "python -m ruff check ."
+typecheck = "python -m mypy"
+javascript = "node --test extension/tests/*.test.mjs"

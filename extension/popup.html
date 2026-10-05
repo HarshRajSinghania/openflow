@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>OpenFlow</title></head>
+<body>
+<h1>OpenFlow</h1>
+<p id="status" role="status"></p>
+<label><input id="enabled" type="checkbox" role="switch"> Habilitar conexão com MCP</label>
+<p id="authorization" hidden>Na primeira conexão, peça ao agente para autorizar o código abaixo. Confirme somente o código desta extensão.</p>
+<p id="pairing"></p>
+<p id="account">Conta: indisponível · Créditos: indisponíveis</p>
+<p id="selected"></p>
+<div id="ambiguity" hidden>
+<label>Aba do Flow <select id="tabs"></select></label>
+<button id="select">Usar esta aba</button>
+</div>
+  <p>Abra o Flow. Uma única aba é selecionada automaticamente. Geração habilitada com captcha legítimo.</p>
+<script type="module" src="popup.js"></script>
+</body>
+</html>
