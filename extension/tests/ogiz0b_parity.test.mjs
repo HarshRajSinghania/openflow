@@ -27,7 +27,7 @@ const FLOWKIT_GOLDEN_INNER =
 // generate_image, with non-determinism (uuid, seed) pinned so the result is
 // comparable. Kept in lock-step with operations.mjs lines 247-252.
 function buildFlowMcpInner({project, prompt, model, ratio, references, seed, uuids}) {
-  const modelById = {nano_banana_pro: "GEM_PIX_2", nano_banana_2: "NARWHAL", nano_banana_lite: "HARBOR_SEAL"};
+  const modelById = {nano_banana_pro: "GEM_PIX_2", nano_banana_2: "BELUGA", nano_banana_lite: "HARBOR_SEAL"};
   const ratioByLabel = {"1:1": 1, "9:16": 2, "16:9": 3, "3:4": 4, "4:3": 5};
   const wireModel = modelById[model];
   const wireRatio = ratioByLabel[ratio];

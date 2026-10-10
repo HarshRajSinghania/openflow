@@ -293,7 +293,7 @@ export async function flowOperation(operation, params, operationErrors) {
       return {scope, state: "completed", assets: [{media_id: record[0], kind: "image"}]};
     }
     if (operation === "generate_image") {
-      const model = {nano_banana_pro: "GEM_PIX_2", nano_banana_2: "NARWHAL", nano_banana_lite: "HARBOR_SEAL"}[p.model];
+      const model = {nano_banana_pro: "GEM_PIX_2", nano_banana_2: "BELUGA", nano_banana_lite: "HARBOR_SEAL"}[p.model];
       const ratio = {"1:1": 1, "9:16": 2, "16:9": 3, "3:4": 4, "4:3": 5}[p.ratio];
       const refs = p.references.map(id => [id, null, null, null, 1]);
       const item = [null, null, refs.length ? refs : null, Math.floor(Math.random() * 1e9) + 1, ratio, model, null, context(), [[[p.prompt]]], null, null, null, uuid(), uuid()];

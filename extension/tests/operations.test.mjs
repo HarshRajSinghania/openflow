@@ -241,7 +241,7 @@ test("MAIN helper serializes standalone and emits captured image slots without p
   assert.equal(result.assets[0].media_id, media);
   assert.equal(h.calls[1].rpc, "ogiZ0b");
   const item = h.calls[1].inner[1][0];
-  assert.equal(item[5], "NARWHAL");
+  assert.equal(item[5], "BELUGA");
   assert.equal(item[4], 1);
   assert.equal(item[8][0][0][0], image.prompt);
   assert.equal(item[7][10][0], "native-token");
