@@ -25,7 +25,7 @@
 
 Você já paga pela assinatura. Leve os recursos do Flow para onde seus projetos acontecem.
 
-Com o OpenFlow, seu agente pode preparar uma imagem para o README, solicitar cenas para um vídeo ou baixar assets para uma aplicação. Você aprova a prévia e a geração acontece na sua sessão do Flow, usando os recursos disponíveis na sua conta.
+**Leve o Nano Banana e os recursos de vídeo do Google Flow para seus agentes de IA.** Conecte sua conta via MCP ou REST e integre a geração de imagens e vídeos às suas aplicações, usando os créditos da assinatura que você já tem.
 
 | Sem a ponte | Com OpenFlow |
 | --- | --- |
