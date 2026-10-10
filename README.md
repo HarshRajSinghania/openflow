@@ -15,7 +15,7 @@
 [![MCP](https://img.shields.io/badge/MCP-stdio%20%2B%20HTTP-8B5CF6)](#mcp)
 [![REST](https://img.shields.io/badge/REST-FastAPI-009688?logo=fastapi&logoColor=white)](#rest)
 
-[🚀 Início rápido](#quick-start) · [💡 Recursos](#features) · [🔌 Integrações](#clients) · [📖 Instalação](#setup) · [🧪 Verificações](docs/matrix-verified.md) · [❓ FAQ](#faq) · [🐛 Suporte](https://github.com/codexfast/openflow/issues)
+[🚀 Início rápido](#quick-start) · [💡 Recursos](#features) · [🔌 Integrações](#clients) · [📖 Instalação](#setup) · [❓ FAQ](#faq) · [🐛 Suporte](https://github.com/codexfast/openflow/issues)
 
 </div>
 
@@ -45,13 +45,11 @@ Com o OpenFlow, seu agente pode preparar uma imagem para o README, solicitar cen
 | 📐 Proporções | `1:1`, `9:16`, `16:9`, `3:4`, `4:3` |
 | 🎬 Vídeos Omni | Texto, quadro inicial, inicial/final e referências; 4–10 segundos |
 | 🎞️ Veo Lite | Quadro inicial, 8 segundos, 720p |
-| 🔍 Upscale | Imagem 2K e vídeo 1080p nos cenários registrados |
+| 🔍 Upscale | Imagem 2K e vídeo 1080p, conforme os recursos disponíveis na sua conta |
 | 📁 Projetos e mídia | Criação de projeto, upload, consulta de jobs e download |
 | 🔌 Integrações | MCP stdio/HTTP e API REST com OpenAPI |
 | 🛡️ Controle | Pareamento, contexto fixado em aba/documento, prévia e confirmação |
 | 💾 Persistência | SQLite; identificação de resultados não verificados |
-
-**Verificação recente:** em 10/10/2026, Nano Banana 2.1 foi gerado e baixado via MCP. O nome público `nano_banana_2` agora mapeia para `BELUGA`. Vídeos e upscales têm registros históricos na [matriz](docs/matrix-verified.md), não uma garantia de funcionamento atual em todas as contas.
 
 ## 🔄 Como funciona
 
@@ -143,12 +141,12 @@ Exemplo de pedido ao agente:
 
 O OpenFlow fala MCP, não uma API de chat compatível com OpenAI. Use um cliente que aceite servidores MCP e ferramentas.
 
-| Cliente / aplicação | Caminho de integração | Estado |
-| --- | --- | --- |
-| Hermes Agent | Servidor MCP HTTP | Geração e download de imagem verificados nesta instalação |
-| OpenCode | Configuração MCP local acima | Exemplo documentado; verifique sua versão |
-| Claude Code, Codex, Cursor, Cline e outros | Cadastrar o comando stdio no gerenciador MCP do cliente | Compatibilidade depende do cliente; não testados individualmente aqui |
-| Aplicação própria / scripts | API REST + OpenAPI | Contratos disponíveis em `/docs` |
+| Cliente / aplicação | Como conectar |
+| --- | --- |
+| Hermes Agent | Cadastre o servidor nas configurações MCP |
+| OpenCode | Use a configuração MCP local acima |
+| Claude Code, Codex, Cursor, Cline e outros clientes MCP | Cadastre o comando stdio no gerenciador MCP do cliente |
+| Aplicação própria / scripts | Use a API REST e os schemas em `/docs` |
 
 Comando genérico stdio:
 
@@ -177,7 +175,7 @@ O OpenFlow entrega operações de mídia; não inclui edição de vídeo, public
 | Confirmação | Pode consumir créditos; confira o Flow antes de aprovar |
 | Submissão incerta | Não reenvie automaticamente; a operação pode ter sido aceita |
 
-Estimativas históricas estão na [matriz verificada](docs/matrix-verified.md). A interface do Flow é a referência para custos atuais. Não há promessa de geração ilimitada ou gratuita.
+Confira o custo de cada operação na interface do Flow. O OpenFlow não altera os créditos nem os limites da sua assinatura.
 
 <a id="faq"></a>
 ## ❓ Perguntas frequentes
@@ -197,16 +195,9 @@ Faça login diretamente no navegador. A extensão opera no contexto dessa sessã
 </details>
 
 <details>
-<summary><strong>Por que a ferramenta ainda se chama nano_banana_2?</strong></summary>
-
-Esse é o nome público do schema. O mapeamento atual usa o identificador `BELUGA` observado na interface Nano Banana 2.1. Mudanças futuras podem exigir outra atualização.
-
-</details>
-
-<details>
 <summary><strong>Funciona em Docker ou em um servidor remoto?</strong></summary>
 
-Esta instalação foi validada com Chromium persistente e servidor em Docker. O repositório ainda não distribui uma imagem pronta nem um Compose oficial. É necessário um navegador operacional, login e acesso seguro; não exponha MCP, REST ou CDP publicamente.
+O servidor precisa acessar um navegador operacional com sua sessão do Flow. O repositório não inclui uma imagem Docker pronta nem um Compose oficial. Em ambientes remotos, use acesso seguro e não exponha MCP, REST ou CDP publicamente.
 
 </details>
 
@@ -221,13 +212,6 @@ Não com as portas padrão: ambos iniciam a ponte `9233`. Escolha uma entrada po
 <summary><strong>Um timeout significa que a geração falhou?</strong></summary>
 
 Não. `submitted_unverified` significa resultado incerto. Consulte o job e o projeto antes de reenviar; a geração pode ter ocorrido e consumido créditos.
-
-</details>
-
-<details>
-<summary><strong>O banner do README foi feito com o próprio OpenFlow?</strong></summary>
-
-Sim. O fundo foi gerado no Nano Banana 2.1 via MCP, baixado e recebeu tipografia na montagem local. `assets/banner-social.png` é uma versão 1280×640 para configurar manualmente o social preview no GitHub.
 
 </details>
 
@@ -329,7 +313,7 @@ Com `pip`, configure o cliente para executar o Python do ambiente virtual com os
 
 ### Cliente em outra máquina
 
-> O transporte HTTP está implementado, mas foi necessário um wrapper de lifespan nesta instalação para iniciar a ponte no nível da aplicação. Esse wrapper local ainda não está incluído neste repositório. Se o HTTP responder mas a extensão não conectar, use stdio ou REST e reporte o problema com a versão da dependência `mcp`. Não considere a conexão HTTP, isoladamente, prova de que a ponte está ativa.
+> Se a extensão não conectar no modo HTTP, use stdio ou REST e consulte a seção de solução de problemas. A conexão do cliente MCP e a conexão da extensão precisam estar ativas para executar operações.
 
 Na máquina do Chrome:
 
@@ -424,9 +408,8 @@ Para atualizar o job, use `GET /jobs/{job_id}` com os parâmetros de consulta `c
 
 O projeto utiliza chamadas internas do Flow no contexto do navegador, não uma API pública estável de geração. Mudanças no serviço, no reCAPTCHA, nos modelos ou nos planos podem interromper operações.
 
-- Os cenários registrados na matriz foram verificados em **4 e 5 de outubro de 2026**; não são testes contínuos de disponibilidade.
 - `veo_lite_low_priority` e `veo_fast_ultra` estão documentados como não implementados.
-- Upscale de imagem em 4K não está validado como bem-sucedido na conta usada nos registros.
+- O suporte descrito para upscale de imagem é 2K; não há garantia de suporte a 4K.
 - A extensão está configurada para a ponte local na porta `9233`. Alterar apenas a porta do servidor não reconfigura a extensão.
 - Jobs interrompidos podem exigir verificação manual antes de qualquer nova submissão.
 
@@ -463,7 +446,7 @@ uv run mypy
 node --test extension/tests/*.test.mjs
 ```
 
-A suíte cobre contratos, pareamento, operações, persistência e integração com componentes simulados. Ela não substitui verificações reais na conta do Flow, que podem consumir créditos e devem ser executadas apenas com autorização.
+A suíte cobre contratos, pareamento, operações e persistência. Testes que executam gerações no Flow podem consumir créditos e exigem autorização.
 
 ## Solução de problemas
 
@@ -475,7 +458,7 @@ A suíte cobre contratos, pareamento, operações, persistência e integração 
 | Aba não disponível | Abra o Flow autenticado, consulte a conexão e selecione a aba novamente |
 | Falha após atualizar a extensão | Recarregue a aba do Flow para executar os scripts da versão atual |
 | `submitted_unverified` | Verifique o job e o Flow antes de qualquer reenvio |
-| `rpc_rejected` | Confira modelo, entradas, plano e restrições na matriz de verificações |
+| `rpc_rejected` | Confira o modelo, as entradas e os recursos disponíveis na sua conta; atualize a extensão |
 | `native_recaptcha_automation_unsupported` | A integração de reCAPTCHA esperada não está disponível; recarregue a aba e verifique a compatibilidade |
 
 ## Contribuições
