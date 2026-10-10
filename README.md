@@ -1,67 +1,243 @@
-# OpenFlow
+<div align="center">
+  <img src="assets/banner.png" alt="OpenFlow — Google Flow via MCP e REST" width="100%" />
+  <h1>OpenFlow · Google Flow no seu fluxo de trabalho</h1>
+  <p><strong>Crie imagens e vídeos com agentes de IA, usando sua sessão do Google Flow.</strong></p>
+  <p>Extensão Chrome + servidor Python local. Prévias, confirmação explícita e jobs persistentes.</p>
 
-**Google Flow no seu fluxo de trabalho: geração de imagens e vídeos via MCP e API REST.**
+[![Licença MIT](https://img.shields.io/github/license/codexfast/openflow)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/codexfast/openflow?style=flat)](https://github.com/codexfast/openflow/stargazers)
+[![Forks](https://img.shields.io/github/forks/codexfast/openflow?style=flat)](https://github.com/codexfast/openflow/forks)
+[![Issues](https://img.shields.io/github/issues/codexfast/openflow)](https://github.com/codexfast/openflow/issues)
+[![Último commit](https://img.shields.io/github/last-commit/codexfast/openflow)](https://github.com/codexfast/openflow/commits/main)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
+[![Chrome](https://img.shields.io/badge/Chrome-116%2B-4285F4?logo=googlechrome&logoColor=white)](extension/manifest.json)
+[![MCP](https://img.shields.io/badge/MCP-stdio%20%2B%20HTTP-8B5CF6)](#mcp)
+[![REST](https://img.shields.io/badge/REST-FastAPI-009688?logo=fastapi&logoColor=white)](#rest)
 
-OpenFlow conecta agentes de IA e aplicações à sua sessão do Google Flow por meio de uma extensão Chrome e de um servidor Python local. Oferece prévias antes da execução, confirmação explícita e acompanhamento persistente de jobs.
+[🚀 Início rápido](#quick-start) · [💡 Recursos](#features) · [🔌 Integrações](#clients) · [📖 Instalação](#setup) · [🧪 Verificações](docs/matrix-verified.md) · [❓ FAQ](#faq) · [🐛 Suporte](https://github.com/codexfast/openflow/issues)
 
-Este projeto é baseado no código de **tuannguyenhoangit-droid**, cujo crédito e licença MIT original estão preservados em [LICENSE](LICENSE).
+</div>
 
-> Projeto independente, sem afiliação ou endosso do Google. A integração depende de interfaces internas do Flow e pode precisar de ajustes quando o serviço mudar. Gerações e upscales podem consumir créditos da sua conta.
+> **Projeto independente, sem afiliação ou endosso do Google.** O código é aberto, mas gerações podem consumir créditos da sua conta. A integração usa interfaces internas do Flow: disponibilidade e compatibilidade podem mudar.
 
-## Índice
+## 🤔 Por que OpenFlow?
 
-- [Recursos](#recursos)
-- [Arquitetura](#arquitetura)
-- [Requisitos](#requisitos)
-- [Instalação](#instalação)
-- [Integração MCP](#integração-mcp)
-- [API REST](#api-rest)
-- [Segurança e créditos](#segurança-e-créditos)
-- [Compatibilidade e limitações](#compatibilidade-e-limitações)
-- [Desenvolvimento](#desenvolvimento)
-- [Solução de problemas](#solução-de-problemas)
-- [Contribuições](#contribuições)
-- [Créditos e licença](#créditos-e-licença)
+Transforme uma tarefa isolada no navegador em uma etapa do seu fluxo de criação.
 
-## Recursos
-
-| Recurso | Suporte documentado |
+| Sem a ponte | Com OpenFlow |
 | --- | --- |
-| Imagens | Nano Banana Pro, Nano Banana 2 e Nano Banana Lite |
-| Proporções de imagem | `1:1`, `9:16`, `16:9`, `3:4` e `4:3` |
-| Vídeos Omni | Texto, quadro inicial, inicial/final e referências; 4 a 10 segundos |
-| Vídeos Veo Lite | Quadro inicial, 8 segundos, 720p |
-| Upscale | Imagens em 2K e vídeos em 1080p nos cenários documentados |
-| Integrações | MCP por stdio ou HTTP e API REST com OpenAPI |
-| Operações auxiliares | Criação de projetos, upload, consulta de jobs e download |
-| Controle de execução | Pareamento da extensão, seleção de aba e confirmação de prévias |
-| Persistência | Jobs em SQLite e identificação de submissões não verificadas |
+| Alternar entre agente e navegador para enviar prompts | Solicitar geração pelo cliente MCP ou pela API REST |
+| Acompanhar cada resultado manualmente | Consultar jobs e baixar os resultados disponíveis |
+| Criar integração própria para cada aplicação | Usar uma camada compartilhada de operações |
+| Reenviar após timeout sem saber se houve cobrança | Identificar submissão incerta e impedir reenvio automático |
 
-Consulte a [matriz de verificações](docs/matrix-verified.md) para cenários testados, restrições e estimativas de créditos. Esses registros não garantem disponibilidade em todas as contas.
+**Seu navegador, sua conta, seu projeto.** O OpenFlow não fornece modelos próprios nem substitui o plano do Flow.
 
-## Arquitetura
+<a id="features"></a>
+## 💡 Recursos
+
+| Área | Suporte documentado |
+| --- | --- |
+| 🍌 Imagens | Nano Banana Pro, Nano Banana 2 e Nano Banana Lite |
+| 📐 Proporções | `1:1`, `9:16`, `16:9`, `3:4`, `4:3` |
+| 🎬 Vídeos Omni | Texto, quadro inicial, inicial/final e referências; 4–10 segundos |
+| 🎞️ Veo Lite | Quadro inicial, 8 segundos, 720p |
+| 🔍 Upscale | Imagem 2K e vídeo 1080p nos cenários registrados |
+| 📁 Projetos e mídia | Criação de projeto, upload, consulta de jobs e download |
+| 🔌 Integrações | MCP stdio/HTTP e API REST com OpenAPI |
+| 🛡️ Controle | Pareamento, contexto fixado em aba/documento, prévia e confirmação |
+| 💾 Persistência | SQLite; identificação de resultados não verificados |
+
+**Verificação recente:** em 10/10/2026, Nano Banana 2.1 foi gerado e baixado via MCP. O nome público `nano_banana_2` agora mapeia para `BELUGA`. Vídeos e upscales têm registros históricos na [matriz](docs/matrix-verified.md), não uma garantia de funcionamento atual em todas as contas.
+
+## 🔄 Como funciona
 
 ```text
-Agente MCP                 Cliente REST
-    |                           |
-    v                           v
-Servidor MCP               API FastAPI
-    |                           |
-    +-------------+-------------+
-                  |
-          Operações + jobs SQLite
-                  |
-          Ponte WebSocket local
-             127.0.0.1:9233
-                  |
-           Extensão Chrome
-                  |
-        Aba autenticada do Flow
+       Agente MCP                    Aplicação REST
+           │                               │
+           ▼                               ▼
+      Servidor MCP                    API FastAPI
+           └──────────────┬────────────────┘
+                          ▼
+               Operações + jobs SQLite
+                          │
+               WebSocket 127.0.0.1:9233
+                          │
+                          ▼
+                   Extensão Chrome
+                          │
+                          ▼
+                Aba autenticada do Flow
+                Sua conta · Seus créditos
 ```
 
-O servidor roda na mesma máquina do Chrome. A extensão executa as operações no contexto da aba autenticada; o projeto não substitui a conta, o plano ou os créditos do Google Flow.
+MCP e REST são entradas alternativas. Na configuração padrão, execute **um por vez**, pois ambos usam a ponte na porta `9233`. O servidor deve estar na máquina do navegador; o cliente pode estar em outra máquina com acesso seguro.
 
-MCP e REST compartilham a camada de operações, mas são processos de entrada separados. Use um deles por vez com a configuração padrão: ambos iniciam a ponte na porta `9233`.
+<a id="quick-start"></a>
+## 🚀 Início rápido
+
+### 1. Clone e instale
+
+```bash
+git clone https://github.com/codexfast/openflow.git
+cd openflow
+uv sync
+```
+
+Requer Python 3.11+, `uv`, Chrome 116+ e uma conta com acesso ao Flow.
+
+### 2. Carregue a extensão
+
+1. Abra `chrome://extensions` e ative **Modo do desenvolvedor**.
+2. Clique em **Carregar sem compactação** e selecione `extension/`.
+3. Abra [Google Flow](https://flow.google.com/) e faça login no próprio navegador.
+4. Abra o projeto em que deseja gerar mídia e mantenha a aba disponível.
+5. Configure o cliente MCP abaixo ou inicie a API REST.
+6. Habilite a conexão no popup e confira o código antes de autorizar o pareamento.
+
+### 3. Conecte seu agente — exemplo OpenCode
+
+```json
+{
+  "mcp": {
+    "openflow": {
+      "type": "local",
+      "command": ["uv", "--project", "/caminho/absoluto/openflow", "run", "openflow"],
+      "enabled": true
+    }
+  }
+}
+```
+
+Substitua o caminho. Esse formato é do **OpenCode**, não uma configuração universal para todos os clientes.
+
+**Prefere REST?** Na máquina do navegador:
+
+```bash
+uv run openflow-api --host 127.0.0.1 --api-port 8100
+```
+
+Abra `http://127.0.0.1:8100/docs` para explorar os schemas reais da API.
+
+### 4. Faça sua primeira geração
+
+```text
+list_connections → conferir código → approve_connection
+    → get_connection / select_flow_tab
+    → generate_image (confirm=false)
+    → conferir prévia → confirmar com o mesmo preview_id
+    → get_job → download
+```
+
+Exemplo de pedido ao agente:
+
+> Use o OpenFlow no projeto selecionado. Prepare uma imagem de uma capivara
+> à beira de um lago ao pôr do sol, com Nano Banana 2, em 16:9. Mostre a
+> prévia e aguarde minha aprovação antes de gerar. Depois baixe o resultado.
+
+<a id="clients"></a>
+## 🔌 Clientes e aplicações
+
+O OpenFlow fala MCP, não uma API de chat compatível com OpenAI. Use um cliente que aceite servidores MCP e ferramentas.
+
+| Cliente / aplicação | Caminho de integração | Estado |
+| --- | --- | --- |
+| Hermes Agent | Servidor MCP HTTP | Geração e download de imagem verificados nesta instalação |
+| OpenCode | Configuração MCP local acima | Exemplo documentado; verifique sua versão |
+| Claude Code, Codex, Cursor, Cline e outros | Cadastrar o comando stdio no gerenciador MCP do cliente | Compatibilidade depende do cliente; não testados individualmente aqui |
+| Aplicação própria / scripts | API REST + OpenAPI | Contratos disponíveis em `/docs` |
+
+Comando genérico stdio:
+
+```bash
+uv --project /caminho/absoluto/openflow run openflow
+```
+
+Não configure o OpenFlow como provedor de LLM. Cada cliente tem seu próprio formato de configuração MCP.
+
+## 🎯 Casos de uso
+
+- **Assets para repositórios:** gerar fundos para banners, ilustrar documentação e baixar arquivos para o projeto.
+- **Pipeline de conteúdo:** solicitar imagens e clipes, acompanhar jobs e entregar a mídia para um editor ou montador externo.
+- **Prototipagem visual:** preparar variações de imagens a partir de prompts e referências pertencentes ao contexto selecionado.
+- **Aplicações locais:** integrar Flow a ferramentas internas usando REST, com confirmação e controle de execução.
+
+O OpenFlow entrega operações de mídia; não inclui edição de vídeo, publicação em redes sociais ou um dashboard web próprio.
+
+## 💰 Código aberto, créditos da sua conta
+
+| Item | Como funciona |
+| --- | --- |
+| Código OpenFlow | MIT; sem tarifa própria de geração |
+| Google Flow | Acesso, modelos, limites e créditos dependem da conta e do plano |
+| Prévia | Prepara os dados, não executa a geração |
+| Confirmação | Pode consumir créditos; confira o Flow antes de aprovar |
+| Submissão incerta | Não reenvie automaticamente; a operação pode ter sido aceita |
+
+Estimativas históricas estão na [matriz verificada](docs/matrix-verified.md). A interface do Flow é a referência para custos atuais. Não há promessa de geração ilimitada ou gratuita.
+
+<a id="faq"></a>
+## ❓ Perguntas frequentes
+
+<details>
+<summary><strong>É uma API oficial do Google Flow?</strong></summary>
+
+Não. É uma ponte independente que usa a sessão autenticada do navegador e interfaces internas do serviço. Não há afiliação com o Google nem garantia de estabilidade dessas interfaces.
+
+</details>
+
+<details>
+<summary><strong>Preciso fornecer senha ou cookies ao agente?</strong></summary>
+
+Faça login diretamente no navegador. A extensão opera no contexto dessa sessão; não compartilhe senhas, cookies ou tokens em prompts, issues ou logs.
+
+</details>
+
+<details>
+<summary><strong>Por que a ferramenta ainda se chama nano_banana_2?</strong></summary>
+
+Esse é o nome público do schema. O mapeamento atual usa o identificador `BELUGA` observado na interface Nano Banana 2.1. Mudanças futuras podem exigir outra atualização.
+
+</details>
+
+<details>
+<summary><strong>Funciona em Docker ou em um servidor remoto?</strong></summary>
+
+Esta instalação foi validada com Chromium persistente e servidor em Docker. O repositório ainda não distribui uma imagem pronta nem um Compose oficial. É necessário um navegador operacional, login e acesso seguro; não exponha MCP, REST ou CDP publicamente.
+
+</details>
+
+<details>
+<summary><strong>Posso executar MCP e REST ao mesmo tempo?</strong></summary>
+
+Não com as portas padrão: ambos iniciam a ponte `9233`. Escolha uma entrada por vez. Mudar só a porta do servidor não reconfigura a extensão.
+
+</details>
+
+<details>
+<summary><strong>Um timeout significa que a geração falhou?</strong></summary>
+
+Não. `submitted_unverified` significa resultado incerto. Consulte o job e o projeto antes de reenviar; a geração pode ter ocorrido e consumido créditos.
+
+</details>
+
+<details>
+<summary><strong>O banner do README foi feito com o próprio OpenFlow?</strong></summary>
+
+Sim. O fundo foi gerado no Nano Banana 2.1 via MCP, baixado e recebeu tipografia na montagem local. `assets/banner-social.png` é uma versão 1280×640 para configurar manualmente o social preview no GitHub.
+
+</details>
+
+## 📚 Guia completo
+
+- [Requisitos](#requisitos) · [Instalação](#setup)
+- [MCP](#mcp) · [REST e exemplos](#rest)
+- [Segurança e créditos](#segurança-e-créditos)
+- [Compatibilidade e limitações](#compatibilidade-e-limitações)
+- [Desenvolvimento](#desenvolvimento) · [Solução de problemas](#solução-de-problemas)
+- [Contribuições](#contribuições) · [Créditos e licença](#créditos-e-licença)
+
+---
 
 ## Requisitos
 
@@ -72,6 +248,7 @@ MCP e REST compartilham a camada de operações, mas são processos de entrada s
 - Um cliente compatível com MCP, caso escolha essa integração.
 - Node.js com suporte a `node --test` para executar os testes da extensão.
 
+<a id="setup"></a>
 ## Instalação
 
 ### 1. Preparar o ambiente
@@ -104,8 +281,9 @@ python -m pip install -e ".[dev]"
 6. No popup da extensão, habilite a conexão.
 7. Compare o código de pareamento exibido na extensão antes de aprovar a conexão pelo cliente.
 
-Se o Flow já estava aberto quando a extensão foi carregada ou atualizada, recarregue a página.
+Após atualizar arquivos de uma extensão sem compactação, use **Recarregar** em `chrome://extensions` e depois recarregue a aba do Flow. Alterar o arquivo no disco não prova que o service worker carregou o código novo.
 
+<a id="mcp"></a>
 ## Integração MCP
 
 ### Cliente local
@@ -148,6 +326,8 @@ Com `pip`, configure o cliente para executar o Python do ambiente virtual com os
 
 ### Cliente em outra máquina
 
+> O transporte HTTP está implementado, mas foi necessário um wrapper de lifespan nesta instalação para iniciar a ponte no nível da aplicação. Esse wrapper local ainda não está incluído neste repositório. Se o HTTP responder mas a extensão não conectar, use stdio ou REST e reporte o problema com a versão da dependência `mcp`. Não considere a conexão HTTP, isoladamente, prova de que a ponte está ativa.
+
 Na máquina do Chrome:
 
 ```bash
@@ -170,6 +350,7 @@ No cliente MCP:
 
 `0.0.0.0` expõe o serviço nas interfaces de rede da máquina. Restrinja o acesso no firewall a clientes confiáveis e use uma camada de autenticação e transporte seguro quando necessário. Não publique essa porta diretamente na internet.
 
+<a id="rest"></a>
 ## API REST
 
 Como alternativa ao MCP, inicie a API na máquina do Chrome:
@@ -317,3 +498,26 @@ Copyright (c) 2026 tuannguyenhoangit-droid
 Distribuído sob a [licença MIT](LICENSE), que permite uso, cópia, modificação, distribuição e uso comercial, inclusive venda, desde que sejam preservados os avisos exigidos pela licença. O software é fornecido sem garantias, conforme o texto integral da licença.
 
 Google, Google Flow e os nomes dos modelos pertencem aos respectivos titulares. Sua menção descreve compatibilidade e não implica afiliação.
+
+
+## 🛠️ Stack
+
+Python · MCP SDK · FastAPI · Uvicorn · WebSockets · Pydantic · httpx · SQLite · Chrome Manifest V3 · JavaScript ES Modules.
+
+## 📧 Suporte
+
+- [Relatar bug](https://github.com/codexfast/openflow/issues/new): inclua versões, passos de reprodução e erros sanitizados.
+- [Propor melhoria](https://github.com/codexfast/openflow/issues): descreva o caso de uso antes de implementar mudanças grandes.
+- [Enviar contribuição](https://github.com/codexfast/openflow/pulls): alterações focadas, testes e registro do que foi validado.
+
+Não publique dados de conta, tokens, URLs assinadas de mídia ou bancos de jobs.
+
+## 👥 Contribuidores
+
+Veja os [contribuidores do repositório](https://github.com/codexfast/openflow/graphs/contributors). O crédito do código original permanece na licença e na seção acima.
+
+## ⭐ Acompanhe o projeto
+
+Se o OpenFlow ajudou seu fluxo de criação, uma estrela facilita encontrar o projeto novamente. [Stars](https://github.com/codexfast/openflow/stargazers) · [Forks](https://github.com/codexfast/openflow/forks) · [Histórico](https://github.com/codexfast/openflow/commits/main).
+
+A organização visual deste README foi inspirada no [9Router](https://github.com/decolua/9router); recursos, exemplos e informações são específicos do OpenFlow.
