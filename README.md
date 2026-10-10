@@ -1,9 +1,9 @@
 <div align="center">
   <img src="assets/banner.png" alt="OpenFlow — Google Flow via MCP e REST" width="100%" />
-  <h1>OpenFlow · Sua assinatura Google AI Pro no fluxo dos seus agentes</h1>
-  <p><strong>Transforme sua assinatura Google AI Pro em um fluxo de criação de imagens e vídeos com IA.</strong></p>
-  <p>Conecte o Google Flow aos seus agentes e aplicações via MCP ou REST. Envie prompts, acompanhe gerações e baixe os resultados sem ficar alternando entre ferramentas.</p>
-  <p>Use os modelos e créditos disponíveis na sua conta para criar banners, assets e cenas para seus projetos, com prévia e confirmação antes de gerar.</p>
+  <h1>OpenFlow · Google AI Pro conectado aos seus agentes</h1>
+  <p><strong>Transforme sua assinatura Google AI Pro em uma integração de geração de imagens e vídeos para seus agentes e aplicações.</strong></p>
+  <p>Acesse os recursos do Google Flow via MCP ou API REST, usando sua própria conta e os créditos da sua assinatura.</p>
+  <p>Nano Banana para imagens. Omni e Veo Lite para vídeos. Do prompt ao download, dentro do seu fluxo de trabalho.</p>
 
 [![Licença MIT](https://img.shields.io/github/license/codexfast/openflow)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/codexfast/openflow?style=flat)](https://github.com/codexfast/openflow/stargazers)
@@ -23,18 +23,14 @@
 
 ## 🤔 Por que OpenFlow?
 
-Você já paga pela assinatura. Leve os recursos do Flow para onde seus projetos acontecem.
+**Sua assinatura não precisa ficar limitada ao uso manual no navegador.** O OpenFlow conecta os recursos do Flow às ferramentas que você já usa para trabalhar.
 
-**Leve o Nano Banana e os recursos de vídeo do Google Flow para seus agentes de IA.** Conecte sua conta via MCP ou REST e integre a geração de imagens e vídeos às suas aplicações, usando os créditos da assinatura que você já tem.
+- **Geração pelo agente:** solicite imagens e vídeos em um cliente MCP, sem enviar cada prompt manualmente na interface do Flow.
+- **Integração por código:** conecte a geração às suas aplicações com uma API REST e schemas OpenAPI.
+- **Sua conta, seus créditos:** use os recursos disponíveis na assinatura, sem uma tarifa adicional cobrada pelo OpenFlow.
+- **Controle sobre a execução:** confira as entradas antes de gerar, acompanhe o status e baixe os arquivos pela mesma integração.
 
-| Sem a ponte | Com OpenFlow |
-| --- | --- |
-| Alternar entre agente e navegador para enviar prompts | Solicitar geração pelo cliente MCP ou pela API REST |
-| Acompanhar cada resultado manualmente | Consultar jobs e baixar os resultados disponíveis |
-| Criar integração própria para cada aplicação | Usar uma camada compartilhada de operações |
-| Reenviar após timeout sem saber se houve cobrança | Identificar submissão incerta e impedir reenvio automático |
-
-**Seu navegador, sua conta, seu projeto.** O OpenFlow não fornece modelos próprios nem substitui o plano do Flow.
+O OpenFlow é a conexão entre suas ferramentas e o Flow. Não fornece créditos extras nem amplia os limites da assinatura.
 
 <a id="features"></a>
 ## 💡 Recursos
@@ -118,7 +114,7 @@ Substitua o caminho. Esse formato é do **OpenCode**, não uma configuração un
 uv run openflow-api --host 127.0.0.1 --api-port 8100
 ```
 
-Abra `http://127.0.0.1:8100/docs` para explorar os schemas reais da API.
+Abra `http://127.0.0.1:8100/docs` para consultar os endpoints e experimentar a API.
 
 ### 4. Faça sua primeira geração
 
@@ -132,9 +128,9 @@ list_connections → conferir código → approve_connection
 
 Exemplo de pedido ao agente:
 
-> Use o OpenFlow no projeto selecionado. Prepare uma imagem de uma capivara
-> à beira de um lago ao pôr do sol, com Nano Banana 2, em 16:9. Mostre a
-> prévia e aguarde minha aprovação antes de gerar. Depois baixe o resultado.
+> Use o OpenFlow para gerar uma imagem de campanha de um perfume sobre
+> pedra escura, com iluminação lateral e fundo minimalista. Use Nano Banana 2
+> em 9:16. Apresente a prévia antes de gerar e baixe o resultado após a confirmação.
 
 <a id="clients"></a>
 ## 🔌 Clientes e aplicações
@@ -156,14 +152,25 @@ uv --project /caminho/absoluto/openflow run openflow
 
 Não configure o OpenFlow como provedor de LLM. Cada cliente tem seu próprio formato de configuração MCP.
 
-## 🎯 Casos de uso
+## 🎯 O que você pode criar
 
-- **Assets para repositórios:** gerar fundos para banners, ilustrar documentação e baixar arquivos para o projeto.
-- **Pipeline de conteúdo:** solicitar imagens e clipes, acompanhar jobs e entregar a mídia para um editor ou montador externo.
-- **Prototipagem visual:** preparar variações de imagens a partir de prompts e referências pertencentes ao contexto selecionado.
-- **Aplicações locais:** integrar Flow a ferramentas internas usando REST, com confirmação e controle de execução.
+### Conteúdo para redes sociais
 
-O OpenFlow entrega operações de mídia; não inclui edição de vídeo, publicação em redes sociais ou um dashboard web próprio.
+Gere as imagens e os clipes que compõem Reels, Shorts e TikToks a partir dos prompts do seu agente. Baixe a mídia para usar no seu processo de edição.
+
+### Criativos para campanhas
+
+Produza imagens de campanha, conceitos visuais e variações de peças para anúncios. Envie referências para orientar as gerações e trabalhe nas proporções de cada canal.
+
+### Cenas e sequências visuais
+
+Transforme descrições de cenas em imagens e clipes. Use quadros de início e fim ou referências nas modalidades de vídeo disponíveis para desenvolver suas sequências.
+
+### Geração dentro das suas aplicações
+
+Adicione operações de imagem e vídeo a scripts, ferramentas internas e fluxos de agentes. Sua aplicação envia o pedido via REST, acompanha o job e baixa o resultado.
+
+A geração usa os modelos e recursos disponíveis na conta. Montagem, edição e publicação ficam a cargo das ferramentas que você conectar ao fluxo.
 
 ## 💰 Código aberto, créditos da sua conta
 
@@ -268,7 +275,7 @@ python -m pip install -e ".[dev]"
 6. No popup da extensão, habilite a conexão.
 7. Compare o código de pareamento exibido na extensão antes de aprovar a conexão pelo cliente.
 
-Após atualizar arquivos de uma extensão sem compactação, use **Recarregar** em `chrome://extensions` e depois recarregue a aba do Flow. Alterar o arquivo no disco não prova que o service worker carregou o código novo.
+Após atualizar arquivos de uma extensão sem compactação, use **Recarregar** em `chrome://extensions` e depois recarregue a aba do Flow. Esse passo aplica a atualização ao navegador.
 
 <a id="mcp"></a>
 ## Integração MCP
@@ -381,7 +388,7 @@ Após aprovar o pareamento e selecionar a aba, envie `POST /images` com os ident
   "connection_id": "<connection_id>",
   "project_id": "<project_id>",
   "input": {
-    "prompt": "Um cubo vermelho sobre uma mesa de madeira, luz natural",
+    "prompt": "Imagem de campanha de um perfume sobre pedra escura, iluminação lateral, fundo minimalista",
     "model": "nano_banana_2",
     "ratio": "1:1",
     "references": []
@@ -504,6 +511,4 @@ Veja os [contribuidores do repositório](https://github.com/codexfast/openflow/g
 
 ## ⭐ Acompanhe o projeto
 
-Se o OpenFlow ajudou seu fluxo de criação, uma estrela facilita encontrar o projeto novamente. [Stars](https://github.com/codexfast/openflow/stargazers) · [Forks](https://github.com/codexfast/openflow/forks) · [Histórico](https://github.com/codexfast/openflow/commits/main).
-
-A organização visual deste README foi inspirada no [9Router](https://github.com/decolua/9router); recursos, exemplos e informações são específicos do OpenFlow.
+Gostou do projeto? Deixe uma estrela e acompanhe as próximas atualizações. [Stars](https://github.com/codexfast/openflow/stargazers) · [Forks](https://github.com/codexfast/openflow/forks) · [Histórico](https://github.com/codexfast/openflow/commits/main).
