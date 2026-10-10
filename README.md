@@ -1,8 +1,9 @@
 <div align="center">
   <img src="assets/banner.png" alt="OpenFlow — Google Flow via MCP e REST" width="100%" />
-  <h1>OpenFlow · Google Flow no seu fluxo de trabalho</h1>
-  <p><strong>Crie imagens e vídeos com agentes de IA, usando sua sessão do Google Flow.</strong></p>
-  <p>Extensão Chrome + servidor Python local. Prévias, confirmação explícita e jobs persistentes.</p>
+  <h1>OpenFlow · Sua assinatura Google AI Pro no fluxo dos seus agentes</h1>
+  <p><strong>Transforme sua assinatura Google AI Pro em um fluxo de criação de imagens e vídeos com IA.</strong></p>
+  <p>Conecte o Google Flow aos seus agentes e aplicações via MCP ou REST. Envie prompts, acompanhe gerações e baixe os resultados sem ficar alternando entre ferramentas.</p>
+  <p>Use os modelos e créditos disponíveis na sua conta para criar banners, assets e cenas para seus projetos, com prévia e confirmação antes de gerar.</p>
 
 [![Licença MIT](https://img.shields.io/github/license/codexfast/openflow)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/codexfast/openflow?style=flat)](https://github.com/codexfast/openflow/stargazers)
@@ -18,11 +19,13 @@
 
 </div>
 
-> **Projeto independente, sem afiliação ou endosso do Google.** O código é aberto, mas gerações podem consumir créditos da sua conta. A integração usa interfaces internas do Flow: disponibilidade e compatibilidade podem mudar.
+<p><sub><strong>Aviso de uso:</strong> OpenFlow é uma integração independente e não oficial, sem afiliação ou endosso do Google. Use por sua conta e risco. A automação pode contrariar termos ou políticas do serviço e pode resultar em restrições, suspensão ou banimento da conta; o projeto não garante proteção contra essas medidas. Gerações podem consumir créditos e continuam sujeitas ao plano, aos limites e à disponibilidade do Flow. Consulte os termos aplicáveis antes de usar.</sub></p>
 
 ## 🤔 Por que OpenFlow?
 
-Transforme uma tarefa isolada no navegador em uma etapa do seu fluxo de criação.
+Você já paga pela assinatura. Leve os recursos do Flow para onde seus projetos acontecem.
+
+Com o OpenFlow, seu agente pode preparar uma imagem para o README, solicitar cenas para um vídeo ou baixar assets para uma aplicação. Você aprova a prévia e a geração acontece na sua sessão do Flow, usando os recursos disponíveis na sua conta.
 
 | Sem a ponte | Com OpenFlow |
 | --- | --- |
