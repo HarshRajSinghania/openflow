@@ -7,8 +7,9 @@ from typing import Any
 from fastapi import FastAPI, HTTPException
 from pydantic import ValidationError
 
-from flow_mcp.bridge import bridge, load_secret
+from flow_mcp.bridge import load_secret
 from flow_mcp.jobs import Jobs
+from flow_mcp.managed import backend_lifespan
 from flow_mcp.manager import BridgeError, Manager
 from flow_mcp.models import StrictModel, TabId
 from flow_mcp.operations import (
@@ -31,12 +32,14 @@ def error_status(error: Exception) -> tuple[int, str]:
     return 500, "internal_error"
 
 
-def create_app(manager: Manager, port: int, jobs: Jobs | None = None) -> FastAPI:
+def create_app(
+    manager: Manager, port: int, jobs: Jobs | None = None, backend: str = "extension"
+) -> FastAPI:
     operations = Operations(manager, jobs if jobs is not None else Jobs())
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        async with bridge(manager, port):
+        async with backend_lifespan(manager, port, backend):
             yield None
 
     app = FastAPI(title="OpenFlow API", version="0.1.0", lifespan=lifespan)
@@ -94,6 +97,13 @@ def create_app(manager: Manager, port: int, jobs: Jobs | None = None) -> FastAPI
     async def account(connection_id: str, refresh: bool = False) -> dict[str, object]:
         try:
             return await manager.account(connection_id, refresh)
+        except Exception as error:
+            raise fail(error) from None
+
+    @app.get("/projects")
+    async def list_projects(connection_id: Identifier) -> dict[str, object]:
+        try:
+            return await manager.projects(connection_id)
         except Exception as error:
             raise fail(error) from None
 
@@ -233,6 +243,7 @@ def main() -> None:
     import uvicorn
 
     parser = argparse.ArgumentParser(prog="openflow-api")
+    parser.add_argument("--backend", choices=["browser", "extension"], default="browser")
     parser.add_argument("--port", type=int, default=9233)
     base = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / ".local" / "share")))
     parser.add_argument("--pairing-dir", type=Path, default=base / "openflow")
@@ -246,7 +257,9 @@ def main() -> None:
         parser.error("api-port must be 1024..65535")
     try:
         secret = ""
-        if args.init_pairing or (args.pairing_dir / "secret").exists():
+        if args.init_pairing or (
+            args.backend == "extension" and (args.pairing_dir / "secret").exists()
+        ):
             secret = load_secret(args.pairing_dir)
         if not args.init_pairing:
             args.pairing_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -254,6 +267,7 @@ def main() -> None:
                 Manager(secret, pairings=Pairings(args.pairing_dir)),
                 args.port,
                 Jobs(args.pairing_dir / "jobs.sqlite3"),
+                backend=args.backend,
             )
             uvicorn.run(app, host=args.host, port=args.api_port, log_level="warning")
     except Exception:

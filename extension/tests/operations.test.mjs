@@ -356,3 +356,21 @@ test("protocol rejects executable fields, mode degradation and alternate scope",
   assert.ok(!validInput("generate_video", {...video, start: media, references: [project]}));
   assert.ok(!validRequest({...request, params: {...request.params, scope: {...scope, project_id: null}}}));
 });
+
+test("credits use verified read-only RPC without captcha and preserve zero", async () => {
+  for (const credits of [0, 471]) {
+    const h = harness([credits, 1, 2, 2]);
+    const result = await h.run("get_credits", {});
+    assert.equal(result.state, "completed");
+    assert.equal(result.credits, credits);
+    assert.equal(h.calls.length, 1);
+    assert.equal(h.calls[0].rpc, "nzlxg");
+    assert.deepEqual(h.calls[0].inner, []);
+  }
+  for (const credits of [-1, true, "471", null, 1.5]) {
+    const h = harness([credits]);
+    const result = await h.run("get_credits", {});
+    assert.equal(result.error, "invalid_credits_response");
+    assert.equal(result.credits, undefined);
+  }
+});

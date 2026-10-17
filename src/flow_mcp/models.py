@@ -26,7 +26,9 @@ class Observation(StrictModel):
     email_confirmed: bool = False
     credits: int | None = Field(default=None, ge=0, le=9007199254740991)
     source: Literal["unavailable", "google_account_aria"] = "unavailable"
-    credits_source: Literal["unavailable", "account_settings_dialog"] = "unavailable"
+    credits_source: Literal[
+        "unavailable", "account_settings_dialog", "flow_credits_rpc"
+    ] = "unavailable"
     observed_at: str | None = Field(
         default=None,
         pattern=r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$",
@@ -38,7 +40,7 @@ class Observation(StrictModel):
             raise ValueError("email_evidence_required")
         if (self.email is not None) != (self.source == "google_account_aria"):
             raise ValueError("email_source_required")
-        if (self.credits is not None) != (self.credits_source == "account_settings_dialog"):
+        if (self.credits is not None) != (self.credits_source != "unavailable"):
             raise ValueError("credits_source_required")
         if self.credits is not None and (self.email is None or self.observed_at is None):
             raise ValueError("credits_account_evidence_required")

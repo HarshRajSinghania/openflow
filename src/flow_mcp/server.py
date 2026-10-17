@@ -9,8 +9,9 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
 
-from flow_mcp.bridge import bridge, load_secret
+from flow_mcp.bridge import load_secret
 from flow_mcp.jobs import Jobs
+from flow_mcp.managed import backend_lifespan
 from flow_mcp.manager import BridgeError, Manager
 from flow_mcp.models import TabId
 from flow_mcp.operations import (
@@ -30,12 +31,13 @@ def create_server(
     jobs: Jobs | None = None,
     host: str = "127.0.0.1",
     mcp_port: int = 8000,
+    backend: str = "extension",
 ) -> FastMCP[None]:
     operations = Operations(manager, jobs if jobs is not None else Jobs())
 
     @asynccontextmanager
     async def lifespan(app: FastMCP[None]) -> AsyncIterator[None]:
-        async with bridge(manager, port):
+        async with backend_lifespan(manager, port, backend):
             yield None
 
     app: FastMCP[None] = FastMCP(
@@ -44,7 +46,9 @@ def create_server(
         host=host,
         port=mcp_port,
         log_level="CRITICAL",
-        instructions="Open Flow with the extension installed. List connections, then ask the user "
+        instructions="Use the managed browser (run openflow setup for manual login first). "
+        "List connections; previews navigate to the requested project before binding. "
+        "In legacy extension mode only, ask the user "
         "to confirm the pairing ID shown in their extension before approve_connection. "
         "Never approve automatically. Authorization is once per installation. "
         "Pin a project tab before operations. Preview generation/upload with confirm=false, "
@@ -126,23 +130,30 @@ def create_server(
         return await safe(manager.select(connection_id, tab_id))
 
     @app.tool(
-        description="Read visible account evidence in the pinned tab without opening panels.",
+        description="Read visible account evidence and, in managed browser mode, current credits "
+        "by HTTPS without opening panels. Unavailable balances remain unknown.",
         annotations=readonly,
     )
     async def get_account_status(connection_id: str | None = None) -> dict[str, object]:
         return await safe(manager.account(connection_id))
 
     @app.tool(
-        description="Open account details in the exact pinned tab to observe account and credits; "
-        "close the panel only when this call opened it. No generation or credit consumption.",
+        description="Refresh account evidence and credits. Managed browser queries credits "
+        "by HTTPS without opening panels; unavailable balances remain unknown. "
+        "Legacy extension may open account details.",
         annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=True),
     )
     async def refresh_account(connection_id: str | None = None) -> dict[str, object]:
         return await safe(manager.account(connection_id, refresh=True))
 
+    @app.tool(description="List projects by HTTPS; managed browser returns to Flow home.")
+    async def list_projects(connection_id: Identifier) -> dict[str, object]:
+        return await safe(manager.projects(connection_id))
+
     @app.tool(
         description="Preview creation in an exact pinned Flow home tab. After human approval, "
-        "confirm with the same preview_id. Sends the captured jHPbke RPC once, without navigation; "
+        "confirm with the same preview_id. Sends jHPbke once; "
+        "managed browser then opens the project; "
         "uncertain outcomes are never resubmitted. No paid generation."
     )
     async def create_project(
@@ -341,13 +352,12 @@ def create_server(
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog="openflow")
+    parser.add_argument("--backend", choices=["browser", "extension"], default="browser")
     parser.add_argument("--port", type=int, default=9233)
     base = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / ".local" / "share")))
     parser.add_argument("--pairing-dir", type=Path, default=base / "openflow")
     parser.add_argument("--init-pairing", action="store_true")
-    parser.add_argument(
-        "--transport", choices=["stdio", "streamable-http"], default="stdio"
-    )
+    parser.add_argument("--transport", choices=["stdio", "streamable-http"], default="stdio")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--mcp-port", type=int, default=8000)
     args: Any = parser.parse_args()
@@ -358,7 +368,9 @@ def main() -> None:
     logging.disable(logging.CRITICAL)
     try:
         secret = ""
-        if args.init_pairing or (args.pairing_dir / "secret").exists():
+        if args.init_pairing or (
+            args.backend == "extension" and (args.pairing_dir / "secret").exists()
+        ):
             secret = load_secret(args.pairing_dir)
         if not args.init_pairing:
             args.pairing_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -368,10 +380,15 @@ def main() -> None:
                 Jobs(args.pairing_dir / "jobs.sqlite3"),
                 host=args.host,
                 mcp_port=args.mcp_port,
+                backend=args.backend,
             )
             app.run(transport=args.transport)
     except Exception:
-        parser.exit(1, "openflow: startup or transport failed; check pairing file and port.\n")
+        parser.exit(
+            1,
+            "openflow: startup failed; check browser login/profile lock, "
+            "OS keyring session and backend ports. Run openflow setup if needed.\n",
+        )
 
 
 if __name__ == "__main__":

@@ -113,7 +113,7 @@ export async function flowOperation(operation, params, operationErrors) {
     throw new Error(envelopes ? "rpc_envelope_missing" : "invalid_batch_response");
   };
   const rpc = async (name, inner) => {
-    const allowed = {list_projects: ["UpteDb"], probe: ["Zzl0ze"], create_project: ["jHPbke"], poll: ["jwpduf", "Zzl0ze", "as29s"],
+    const allowed = {get_credits: ["nzlxg"], list_projects: ["UpteDb"], probe: ["Zzl0ze"], create_project: ["jHPbke"], poll: ["jwpduf", "Zzl0ze", "as29s"],
       upscale_image: ["SPrCad"], upscale_video: ["p0UkFb"],
       upload: ["maseQ"], generate_image: ["ogiZ0b"], generate_video: ["MZZa6b", "nprQif", "eb1hJf", "YhhmEf"]};
     if (!allowed[operation]?.includes(name)) throw new Error("invalid_rpc");
@@ -131,7 +131,7 @@ export async function flowOperation(operation, params, operationErrors) {
     phase = "transport";
     sent = true;
     const response = await fetch(endpoint.pathname + "?" + query, {
-      method: "POST", credentials: "include", redirect: "error", signal: AbortSignal.timeout(180000),
+      method: "POST", credentials: "include", redirect: "error", signal: AbortSignal.timeout(operation === "get_credits" ? 10000 : 180000),
       headers: {"content-type": "application/x-www-form-urlencoded;charset=UTF-8", "x-same-domain": "1"}, body
     });
     diagnostics.http_status = response.status;
@@ -156,6 +156,11 @@ export async function flowOperation(operation, params, operationErrors) {
   };
   try {
     check();
+    if (operation === "get_credits") {
+      const result = await rpc("nzlxg", []);
+      if (!Array.isArray(result) || !Number.isSafeInteger(result[0]) || result[0] < 0) throw new Error("invalid_credits_response");
+      return finish({scope, state: "completed", credits: result[0]});
+    }
     if (operation === "list_projects") {
       if (scope.project_id !== null) throw new Error("invalid_project_scope");
       const payload = await rpc("UpteDb", ["projects/*", 100]);

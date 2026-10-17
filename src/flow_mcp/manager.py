@@ -205,6 +205,34 @@ class Manager:
                 **snapshot.model_dump(),
             }
 
+    def register_local(self, socket: Socket, identity: str) -> Session:
+        if identity in self.sessions:
+            raise BridgeError("duplicate_connection")
+        session = Session(identity, "Managed browser", socket)
+        self.sessions[identity] = session
+        return session
+
+    async def prepare_project(self, session: Session, project_id: str | None) -> None:
+        prepare = getattr(session.socket, "prepare_project", None)
+        if prepare is not None:
+            await prepare(project_id)
+
+    async def verify_scope(self, session: Session, scope: Scope) -> None:
+        verify = getattr(session.socket, "verify_scope", None)
+        if verify is not None:
+            await verify(scope)
+
+    async def projects(self, connection_id: str) -> dict[str, object]:
+        session = self.resolve(connection_id)
+        async with session.lock:
+            await self.prepare_project(session, None)
+            scope = session.selected
+            if scope is None or scope.project_id is not None:
+                raise BridgeError("select_flow_home_tab_required")
+            return await self.request(
+                session, "list_projects", {"scope": scope.model_dump()}, deadline_seconds=45
+            )
+
     async def select(self, connection_id: str | None, tab_id: int) -> dict[str, object]:
         session = self.resolve(connection_id)
         async with session.lock:

@@ -16,15 +16,20 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+browser = ["playwright>=1.58,<2"]
 dev = ["pytest>=8,<10", "pytest-asyncio>=1,<2", "ruff>=0.12,<1", "mypy>=1.15,<2"]
 
 [project.scripts]
-openflow = "flow_mcp.server:main"
+openflow = "flow_mcp.cli:main"
 openflow-api = "flow_mcp.api:main"
 flow-mcp = "flow_mcp.server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/flow_mcp"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"extension/operations.mjs" = "flow_mcp/operations.mjs"
+"extension/hijack_bypass.js" = "flow_mcp/hijack_bypass.js"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
