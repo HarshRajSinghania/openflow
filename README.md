@@ -24,7 +24,6 @@ O backend de navegador gerenciado é experimental. Mudanças no Flow podem inter
 - [Como funciona](#architecture)
 - [Segurança, conta e créditos](#security)
 - [Compatibilidade e limitações](#compatibilidade-e-limitações)
-- [Exemplo de geração](#exemplo-de-geração)
 - [Solução de problemas](#solução-de-problemas)
 - [Desenvolvimento](#desenvolvimento)
 - [Contribuição](#contribuição)
@@ -302,19 +301,6 @@ O projeto utiliza interfaces internas do Flow no contexto do navegador, não uma
 - Veo Lite requer quadro inicial, 8 s e 720p. `veo_lite_low_priority` e `veo_fast_ultra` não são opções implementadas.
 - O repositório não fornece imagem Docker ou Compose oficial. Um ambiente remoto precisa de navegador operacional, setup manual e acesso seguro ao perfil/keyring.
 
-## Exemplo de geração
-
-<details>
-<summary>Imagem gerada via REST com Nano Banana 2.1</summary>
-
-![Portal arquitetônico — imagem gerada por IA pelo OpenFlow](assets/flow-showcase/portal.jpg)
-
-Nano Banana 2.1 (`nano_banana_2`), proporção `16:9`, saída de 1376 × 768. Gerada via REST no navegador gerenciado, sem extensão. É uma imagem estática gerada por IA, não uma fotografia ou vídeo.
-
-Prompt resumido: portal circular de titânio e basalto sobre uma costa fantástica, água turquesa e luz âmbar. [Prompt completo e informações do arquivo](assets/README.md).
-
-</details>
-
 ## Solução de problemas
 
 | Sintoma | O que verificar |
@@ -373,9 +359,6 @@ src/flow_mcp/
 └── bridge.py          Ponte legada da extensão
 extension/             Backend legado e runtime HTTPS compartilhado
 tests/                 Testes Python
-docs/                  Diagnósticos técnicos
-assets/                Capa e demonstração gerada pelo OpenFlow
-scripts/build_banner.py Composição reproduzível da capa
 ```
 
 ```bash
@@ -387,6 +370,8 @@ node --test extension/tests/*.test.mjs
 ```
 
 Node.js é necessário apenas para os testes JavaScript. Testes reais de geração podem consumir créditos e exigem autorização.
+
+Salve downloads, mídias geradas e outras saídas locais de teste em `artifacts/`, que já é ignorado pelo Git. Esses arquivos não fazem parte do código-fonte e não devem ser incluídos em commits.
 
 ## Contribuição
 
