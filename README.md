@@ -14,6 +14,40 @@ A integração usa uma sessão autenticada em um Chromium gerenciado, com perfil
 
 O backend de navegador gerenciado é experimental. Mudanças no Flow podem interromper a integração.
 
+<a id="architecture"></a>
+## Como funciona
+
+**Seu agente ou aplicação chama o OpenFlow. O OpenFlow acessa o Google Flow pelo navegador autenticado com a sua conta.**
+
+```mermaid
+flowchart TB
+    agent["Agente de IA"] -->|MCP| server
+    app["Aplicação ou script"] -->|REST| server
+
+    subgraph host["Máquina que executa o OpenFlow"]
+        server["OpenFlow · MCP ou API REST<br/>Operações e jobs persistentes"]
+        browser["Chromium gerenciado<br/>Sua conta Google autenticada<br/>Perfil dedicado e sessão persistente"]
+        server <-->|"Chamadas e respostas no contexto da página"| browser
+    end
+
+    person["Você · login manual no setup"] -.-> browser
+
+    subgraph google["Serviço externo · Google"]
+        flow["Google Flow<br/>Geração de imagens e vídeos<br/>Seu plano e seus créditos"]
+    end
+
+    browser <-->|"HTTPS autenticado · interfaces internas"| flow
+    server -->|"Status, mídia e download"| result["Resultados para o agente ou aplicação"]
+```
+
+MCP e REST são **duas formas de acessar o mesmo serviço**, não provedores de geração separados. O Chromium mantém a sessão e executa as chamadas autenticadas; **quem processa a geração é o Google Flow**. O OpenFlow acompanha os jobs e disponibiliza os resultados ao cliente.
+
+- **Login direto no Google.** Você informa senha e 2FA somente no site, durante `openflow setup`, nunca ao agente. Depois, a sessão pode ser reutilizada em headless. Proteja o perfil local: ele contém os dados de autenticação.
+- **Sem extensão no fluxo padrão.** O OpenFlow usa um navegador próprio com perfil persistente, sem compartilhar seu perfil pessoal. O diagrama representa esse backend gerenciado; MCP e REST são alternativas, não duas instâncias simultâneas no mesmo perfil.
+- **Sem cliques de geração.** As operações são chamadas HTTPS no contexto autenticado; a navegação abre o projeto solicitado antes de preparar a prévia.
+- **Projeto obrigatório.** A confirmação exige os mesmos dados, projeto e documento da prévia. Se o contexto mudar, prepare uma nova prévia; o sistema não navega para ressuscitar a anterior.
+- **Submissões incertas.** Jobs de resultado incerto ficam identificados para verificação, não são automaticamente ressubmetidos.
+
 ## Índice
 
 - [Funcionalidades](#features)
@@ -235,32 +269,6 @@ O download aceita somente resultados de um job concluído e do escopo correspond
 | `POST` | `/jobs/{job_id}/download` | Salvar resultado na máquina do servidor |
 
 Os schemas completos e endpoints de compatibilidade estão no OpenAPI local. Não publique respostas com URLs assinadas, dados privados ou informações de conta.
-
-<a id="architecture"></a>
-## Como funciona
-
-```text
-  Agente MCP                     Aplicação REST
-      │                                │
-      ▼                                ▼
- Servidor MCP                     API FastAPI
-      └────────────────┬───────────────┘
-                       ▼
-             Operações + jobs SQLite
-                       │
-                       ▼
-          Chromium dedicado e gerenciado
-             Sua sessão autenticada
-                       │
-              HTTPS no projeto do Flow
-                       ▼
-             Imagens · Vídeos · Assets
-```
-
-- **Sem extensão no fluxo padrão.** O OpenFlow usa um navegador próprio com perfil persistente, sem compartilhar seu perfil pessoal.
-- **Sem cliques de geração.** As operações são chamadas HTTPS no contexto autenticado; a navegação abre o projeto solicitado antes de preparar a prévia.
-- **Projeto obrigatório.** A confirmação exige os mesmos dados, projeto e documento da prévia. Se o contexto mudar, prepare uma nova prévia; o sistema não navega para ressuscitar a anterior.
-- **Submissões incertas.** Jobs de resultado incerto ficam identificados para verificação, não são automaticamente ressubmetidos.
 
 <a id="security"></a>
 ## Segurança, conta e créditos
