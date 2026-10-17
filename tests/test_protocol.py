@@ -58,7 +58,8 @@ async def test_mcp_stdio_with_simulated_extension(tmp_path):
     port = free_port()
     params = StdioServerParameters(
         command=sys.executable,
-        args=["-m", "flow_mcp.server", "--pairing-dir", str(tmp_path), "--port", str(port)],
+        args=["-m", "flow_mcp.server", "--backend", "extension",
+              "--pairing-dir", str(tmp_path), "--port", str(port)],
     )
     async with stdio_client(params) as (read, write):
         async with ClientSession(read, write) as client:
@@ -71,6 +72,7 @@ async def test_mcp_stdio_with_simulated_extension(tmp_path):
                 "get_account_status",
                 "refresh_account",
                 "create_project",
+                "list_projects",
                 "disconnect_connection",
                 "list_pairing_requests",
                 "approve_connection",

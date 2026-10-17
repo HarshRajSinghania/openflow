@@ -166,6 +166,8 @@ class Operations:
         value["result"] = dict(value["result"])
         if value["result"].pop("encoded_image", None):
             value["result"]["inline_image_available"] = True
+            value["result"]["download_available"] = value["state"] == "completed"
+            value["result"]["download_asset_index"] = 0
         return value
 
     @staticmethod
@@ -216,26 +218,30 @@ class Operations:
         if operation not in {"upload", "generate_image", "generate_video",
                              "upscale_image", "upscale_video"}:
             raise ValueError("unsupported_operation")
-        session, scope = self.binding(connection_id, project_id)
-        data = value.model_dump()
-        stored = dict(data)
-        if operation == "upload":
-            stored.pop("data")
-            stored["sha256"] = hashlib.sha256(data["data"].encode("ascii")).hexdigest()
-            stored["encoded_size"] = len(data["data"])
-        if operation.startswith("upscale_") and not self.jobs.owns(
-            connection_id, scope, data["media_id"],
-            "video" if operation == "upscale_video" else "image",
-        ):
-            raise BridgeError("reference_not_owned_by_exact_scope_upload_first")
-        refs = list(data.get("references", []))
-        refs.extend(data[key] for key in ("start", "end") if data.get(key))
-        if len(set(refs)) != len(refs):
-            raise ValueError("duplicate_references")
-        for media in refs:
-            if not self.jobs.owns(connection_id, scope, media):
-                raise BridgeError("reference_not_owned_by_exact_scope_upload_first")
+        session = self.manager.resolve(connection_id)
         async with session.lock:
+            if not confirm:
+                await self.manager.prepare_project(session, project_id)
+            session, scope = self.binding(connection_id, project_id)
+            await self.manager.verify_scope(session, scope)
+            data = value.model_dump()
+            stored = dict(data)
+            if operation == "upload":
+                stored.pop("data")
+                stored["sha256"] = hashlib.sha256(data["data"].encode("ascii")).hexdigest()
+                stored["encoded_size"] = len(data["data"])
+            if operation.startswith("upscale_") and not self.jobs.owns(
+                connection_id, scope, data["media_id"],
+                "video" if operation == "upscale_video" else "image",
+            ):
+                raise BridgeError("reference_not_owned_by_exact_scope_upload_first")
+            refs = list(data.get("references", []))
+            refs.extend(data[key] for key in ("start", "end") if data.get(key))
+            if len(set(refs)) != len(refs):
+                raise ValueError("duplicate_references")
+            for media in refs:
+                if not self.jobs.owns(connection_id, scope, media):
+                    raise BridgeError("reference_not_owned_by_exact_scope_upload_first")
             if session.selected != scope or not session.alive:
                 raise BridgeError("scope_changed")
             if not confirm:
@@ -366,6 +372,8 @@ class Operations:
                 return {**self.public(previous), "not_resubmitted": True}
         session = self.manager.resolve(connection_id)
         async with session.lock:
+            if not confirm:
+                await self.manager.prepare_project(session, None)
             scope = session.selected
             if scope is None or scope.origin != "https://flow.google.com" or scope.project_id:
                 raise BridgeError("select_flow_home_tab_required")
@@ -457,7 +465,15 @@ class Operations:
                     {"error": "submission_outcome_unknown_do_not_retry",
                      "failure": failure},
                 )
-            return self.public(self.jobs.get(preview_id))
+            completed = self.jobs.get(preview_id)
+            if completed["state"] == "completed":
+                try:
+                    await self.manager.prepare_project(session, selected.project_id)
+                except Exception:
+                    return {
+                        **self.public(completed), "navigation_error": "project_navigation_failed"
+                    }
+            return self.public(completed)
 
     def validate_assets(self, result: Outcome) -> None:
         for asset in result.assets:
@@ -537,7 +553,8 @@ class Operations:
                 stream.write(content)
             metadata = await file_metadata(target, "image")
             return {"path": str(target), "bytes": len(content),
-                    "sha256": hashlib.sha256(content).hexdigest(), **metadata}
+                    "sha256": hashlib.sha256(content).hexdigest(),
+                    "requested_resolution": job["input"].get("resolution"), **metadata}
         assets = job["result"].get("assets", [])
         if index < 0 or index >= len(assets):
             raise ValueError("asset_index_invalid")

@@ -1,288 +1,108 @@
-<div align="center">
-  <img src="assets/banner.png" alt="OpenFlow — Google Flow via MCP e REST" width="100%" />
-  <h1>OpenFlow · Google AI Pro conectado aos seus agentes</h1>
-  <p><strong>Transforme sua assinatura Google AI Pro em uma integração de geração de imagens e vídeos para seus agentes e aplicações.</strong></p>
-  <p>Acesse os recursos do Google Flow via MCP ou API REST, usando sua própria conta e os créditos da sua assinatura.</p>
-  <p>Nano Banana para imagens. Omni e Veo Lite para vídeos. Do prompt ao download, dentro do seu fluxo de trabalho.</p>
+# OpenFlow
 
-[![Licença MIT](https://img.shields.io/github/license/codexfast/openflow)](LICENSE)
-[![Stars](https://img.shields.io/github/stars/codexfast/openflow?style=flat)](https://github.com/codexfast/openflow/stargazers)
-[![Forks](https://img.shields.io/github/forks/codexfast/openflow?style=flat)](https://github.com/codexfast/openflow/forks)
-[![Issues](https://img.shields.io/github/issues/codexfast/openflow)](https://github.com/codexfast/openflow/issues)
-[![Último commit](https://img.shields.io/github/last-commit/codexfast/openflow)](https://github.com/codexfast/openflow/commits/main)
-[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
-[![Chrome](https://img.shields.io/badge/Chrome-116%2B-4285F4?logo=googlechrome&logoColor=white)](extension/manifest.json)
-[![MCP](https://img.shields.io/badge/MCP-stdio%20%2B%20HTTP-8B5CF6)](#mcp)
-[![REST](https://img.shields.io/badge/REST-FastAPI-009688?logo=fastapi&logoColor=white)](#rest)
+[![MIT](https://img.shields.io/github/license/codexfast/openflow)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB)](pyproject.toml)
+[![Estrelas no GitHub](https://img.shields.io/github/stars/codexfast/openflow?style=flat)](https://github.com/codexfast/openflow/stargazers)
 
-[🚀 Início rápido](#quick-start) · [💡 Recursos](#features) · [🔌 Integrações](#clients) · [📖 Instalação](#setup) · [❓ FAQ](#faq) · [🐛 Suporte](https://github.com/codexfast/openflow/issues)
+OpenFlow é um projeto open source que permite usar os recursos do Google Flow disponíveis na sua assinatura Google AI Pro por meio de um servidor **MCP** ou de uma **API REST**.
 
-</div>
+Agentes de IA e aplicações podem gerar imagens e vídeos usando sua conta e os créditos do plano, sem enviar cada pedido manualmente na interface do Flow. O projeto também oferece operações de projetos, upload, upscale e download.
 
-<p><sub><strong>Aviso de uso:</strong> OpenFlow é uma integração independente e não oficial, sem afiliação ou endosso do Google. Use por sua conta e risco. A automação pode contrariar termos ou políticas do serviço e pode resultar em restrições, suspensão ou banimento da conta; o projeto não garante proteção contra essas medidas. Gerações podem consumir créditos e continuam sujeitas ao plano, aos limites e à disponibilidade do Flow. Consulte os termos aplicáveis antes de usar.</sub></p>
+A integração usa uma sessão autenticada em um Chromium gerenciado, com perfil local persistente. O login é feito manualmente no navegador; depois, o servidor pode reutilizar a sessão em headless. **Não é necessário instalar extensão.**
 
-## 🤔 Por que OpenFlow?
+> **Não é uma API oficial do Google.** O projeto utiliza interfaces internas do Flow e não tem afiliação ou endosso do Google. A automação pode contrariar termos ou políticas do serviço e resultar em restrições, suspensão ou banimento da conta. Use por sua conta e risco. Acesso, modelos e créditos continuam sujeitos ao plano e à disponibilidade do serviço.
 
-**Sua assinatura não precisa ficar limitada ao uso manual no navegador.** O OpenFlow conecta os recursos do Flow às ferramentas que você já usa para trabalhar.
+O backend de navegador gerenciado é experimental. Mudanças no Flow podem interromper a integração.
 
-- **Geração pelo agente:** solicite imagens e vídeos em um cliente MCP, sem enviar cada prompt manualmente na interface do Flow.
-- **Integração por código:** conecte a geração às suas aplicações com uma API REST e schemas OpenAPI.
-- **Sua conta, seus créditos:** use os recursos disponíveis na assinatura, sem uma tarifa adicional cobrada pelo OpenFlow.
-- **Controle sobre a execução:** confira as entradas antes de gerar, acompanhe o status e baixe os arquivos pela mesma integração.
+## Índice
 
-O OpenFlow é a conexão entre suas ferramentas e o Flow. Não fornece créditos extras nem amplia os limites da assinatura.
+- [Funcionalidades](#features)
+- [Requisitos](#requisitos)
+- [Instalação e login](#setup)
+- [Uso com MCP](#mcp)
+- [Uso com REST](#rest)
+- [Como funciona](#architecture)
+- [Segurança, conta e créditos](#security)
+- [Compatibilidade e limitações](#compatibilidade-e-limitações)
+- [Exemplo de geração](#exemplo-de-geração)
+- [Solução de problemas](#solução-de-problemas)
+- [Desenvolvimento](#desenvolvimento)
+- [Contribuição](#contribuição)
+- [Contribuidores](#contribuidores)
+- [Histórico de estrelas](#histórico-de-estrelas)
+- [Backend legado](#backend-legado-extensão)
+- [Créditos e licença](#créditos-e-licença)
 
 <a id="features"></a>
-## 💡 Recursos
+## Funcionalidades
 
-| Área | Suporte documentado |
+| Recurso | Suporte |
 | --- | --- |
-| 🍌 Imagens | Nano Banana Pro, Nano Banana 2 e Nano Banana Lite |
-| 📐 Proporções | `1:1`, `9:16`, `16:9`, `3:4`, `4:3` |
-| 🎬 Vídeos Omni | Texto, quadro inicial, inicial/final e referências; 4–10 segundos |
-| 🎞️ Veo Lite | Quadro inicial, 8 segundos, 720p |
-| 🔍 Upscale | Imagem 2K e vídeo 1080p, conforme os recursos disponíveis na sua conta |
-| 📁 Projetos e mídia | Criação de projeto, upload, consulta de jobs e download |
-| 🔌 Integrações | MCP stdio/HTTP e API REST com OpenAPI |
-| 🛡️ Controle | Pareamento, contexto fixado em aba/documento, prévia e confirmação |
-| 💾 Persistência | SQLite; identificação de resultados não verificados |
+| **Imagens** | Nano Banana Pro, Nano Banana 2.1 e Nano Banana Lite |
+| **Proporções de imagem** | `1:1`, `9:16`, `16:9`, `3:4`, `4:3`; até 4 referências |
+| **Vídeos Omni** | Texto, quadro inicial, inicial/final ou até 3 referências; 4, 6, 8 ou 10 s; 360p/720p |
+| **Vídeos Veo Lite** | Quadro inicial obrigatório, 8 s, 720p |
+| **Upscale** | Imagens 2K/4K conforme conta/plano; 4K exige Ultra. Vídeos 1080p com `scene_id` real |
+| **Projetos e mídia** | Listagem e criação de projetos, upload, consulta de jobs e download |
+| **Integrações** | MCP stdio/HTTP e REST com schemas OpenAPI |
+| **Controle** | Prévia/confirmação, contexto de projeto/documento e jobs persistentes em SQLite |
 
-## 🔄 Como funciona
+Os modelos e recursos disponíveis dependem da conta e do plano. O nome Nano Banana 2.1 corresponde ao identificador `nano_banana_2` nos parâmetros da API.
 
-```text
-       Agente MCP                    Aplicação REST
-           │                               │
-           ▼                               ▼
-      Servidor MCP                    API FastAPI
-           └──────────────┬────────────────┘
-                          ▼
-               Operações + jobs SQLite
-                          │
-               WebSocket 127.0.0.1:9233
-                          │
-                          ▼
-                   Extensão Chrome
-                          │
-                          ▼
-                Aba autenticada do Flow
-                Sua conta · Seus créditos
-```
+## Requisitos
 
-MCP e REST são entradas alternativas. Na configuração padrão, execute **um por vez**, pois ambos usam a ponte na porta `9233`. O servidor deve estar na máquina do navegador; o cliente pode estar em outra máquina com acesso seguro.
+- Python 3.11 ou superior e [uv](https://docs.astral.sh/uv/getting-started/installation/).
+- Conta Google com acesso ao [Flow](https://flow.google.com/), como o oferecido pela assinatura Google AI Pro.
+- Créditos e acesso aos modelos necessários para cada operação, conforme o plano.
+- Ambiente com interface gráfica para o login inicial; depois, o navegador pode operar em headless.
+- Cliente compatível com MCP ou aplicação que faça chamadas HTTP à API REST.
+
+O Chromium dedicado é instalado nos passos abaixo. Não é necessário instalar uma extensão ou compartilhar o perfil pessoal do navegador.
 
 <a id="quick-start"></a>
-## 🚀 Início rápido
+<a id="setup"></a>
+## Instalação e login
 
-### 1. Clone e instale
+### 1. Instalar dependências
 
 ```bash
 git clone https://github.com/codexfast/openflow.git
 cd openflow
-uv sync
+uv sync --extra browser
+uv run --extra browser playwright install chromium --no-shell
 ```
 
-Requer Python 3.11+, `uv`, Chrome 116+ e uma conta com acesso ao Flow.
+No Linux, o Playwright também exige bibliotecas de sistema compatíveis. Se faltarem dependências, consulte as [instruções do Playwright](https://playwright.dev/python/docs/browsers#install-system-dependencies). Os comandos acima não instalam pacotes do sistema com privilégios administrativos.
 
-### 2. Carregue a extensão
-
-1. Abra `chrome://extensions` e ative **Modo do desenvolvedor**.
-2. Clique em **Carregar sem compactação** e selecione `extension/`.
-3. Abra [Google Flow](https://flow.google.com/) e faça login no próprio navegador.
-4. Abra o projeto em que deseja gerar mídia e mantenha a aba disponível.
-5. Configure o cliente MCP abaixo ou inicie a API REST.
-6. Habilite a conexão no popup e confira o código antes de autorizar o pareamento.
-
-### 3. Conecte seu agente — exemplo OpenCode
-
-```json
-{
-  "mcp": {
-    "openflow": {
-      "type": "local",
-      "command": ["uv", "--project", "/caminho/absoluto/openflow", "run", "openflow"],
-      "enabled": true
-    }
-  }
-}
-```
-
-Substitua o caminho. Esse formato é do **OpenCode**, não uma configuração universal para todos os clientes.
-
-**Prefere REST?** Na máquina do navegador:
+### 2. Autenticar no Flow
 
 ```bash
-uv run openflow-api --host 127.0.0.1 --api-port 8100
+uv run --extra browser openflow setup
 ```
 
-Abra `http://127.0.0.1:8100/docs` para consultar os endpoints e experimentar a API.
+Uma janela do Chromium será aberta. **Faça login diretamente no Google e abra o Flow.** Senha e 2FA são informados somente no site, nunca ao agente ou ao OpenFlow.
 
-### 4. Faça sua primeira geração
+Feche a janela ou pressione Ctrl+C para encerrar o setup e liberar o perfil. O login fica salvo no perfil dedicado; se a sessão expirar, repita o setup.
 
-```text
-list_connections → conferir código → approve_connection
-    → get_connection / select_flow_tab
-    → generate_image (confirm=false)
-    → conferir prévia → confirmar com o mesmo preview_id
-    → get_job → download
-```
+### 3. Iniciar MCP ou REST
 
-Exemplo de pedido ao agente:
+| Agente com ferramentas MCP | Aplicação ou script via REST |
+| --- | --- |
+| Configure o cliente para executar o comando abaixo em stdio. | Execute a API e abra `http://127.0.0.1:8100/docs`. |
+| `uv run --extra browser openflow` | `uv run --extra browser openflow-api --api-port 8100` |
+| [Configuração MCP →](#mcp) | [Exemplo REST →](#rest) |
 
-> Use o OpenFlow para gerar uma imagem de campanha de um perfume sobre
-> pedra escura, com iluminação lateral e fundo minimalista. Use Nano Banana 2
-> em 9:16. Apresente a prévia antes de gerar e baixe o resultado após a confirmação.
+**O servidor inicia o navegador headless automaticamente.** Não deixe `setup` ou `browser start` aberto em paralelo. MCP e REST são alternativas: execute um por vez com o mesmo perfil.
 
 <a id="clients"></a>
-## 🔌 Clientes e aplicações
-
-O OpenFlow fala MCP, não uma API de chat compatível com OpenAI. Use um cliente que aceite servidores MCP e ferramentas.
-
-| Cliente / aplicação | Como conectar |
-| --- | --- |
-| Hermes Agent | Cadastre o servidor nas configurações MCP |
-| OpenCode | Use a configuração MCP local acima |
-| Claude Code, Codex, Cursor, Cline e outros clientes MCP | Cadastre o comando stdio no gerenciador MCP do cliente |
-| Aplicação própria / scripts | Use a API REST e os schemas em `/docs` |
-
-Comando genérico stdio:
-
-```bash
-uv --project /caminho/absoluto/openflow run openflow
-```
-
-Não configure o OpenFlow como provedor de LLM. Cada cliente tem seu próprio formato de configuração MCP.
-
-## 🎯 O que você pode criar
-
-### Conteúdo para redes sociais
-
-Gere as imagens e os clipes que compõem Reels, Shorts e TikToks a partir dos prompts do seu agente. Baixe a mídia para usar no seu processo de edição.
-
-### Criativos para campanhas
-
-Produza imagens de campanha, conceitos visuais e variações de peças para anúncios. Envie referências para orientar as gerações e trabalhe nas proporções de cada canal.
-
-### Cenas e sequências visuais
-
-Transforme descrições de cenas em imagens e clipes. Use quadros de início e fim ou referências nas modalidades de vídeo disponíveis para desenvolver suas sequências.
-
-### Geração dentro das suas aplicações
-
-Adicione operações de imagem e vídeo a scripts, ferramentas internas e fluxos de agentes. Sua aplicação envia o pedido via REST, acompanha o job e baixa o resultado.
-
-A geração usa os modelos e recursos disponíveis na conta. Montagem, edição e publicação ficam a cargo das ferramentas que você conectar ao fluxo.
-
-## 💰 Código aberto, créditos da sua conta
-
-| Item | Como funciona |
-| --- | --- |
-| Código OpenFlow | MIT; sem tarifa própria de geração |
-| Google Flow | Acesso, modelos, limites e créditos dependem da conta e do plano |
-| Prévia | Prepara os dados, não executa a geração |
-| Confirmação | Pode consumir créditos; confira o Flow antes de aprovar |
-| Submissão incerta | Não reenvie automaticamente; a operação pode ter sido aceita |
-
-Confira o custo de cada operação na interface do Flow. O OpenFlow não altera os créditos nem os limites da sua assinatura.
-
-<a id="faq"></a>
-## ❓ Perguntas frequentes
-
-<details>
-<summary><strong>É uma API oficial do Google Flow?</strong></summary>
-
-Não. É uma ponte independente que usa a sessão autenticada do navegador e interfaces internas do serviço. Não há afiliação com o Google nem garantia de estabilidade dessas interfaces.
-
-</details>
-
-<details>
-<summary><strong>Preciso fornecer senha ou cookies ao agente?</strong></summary>
-
-Faça login diretamente no navegador. A extensão opera no contexto dessa sessão; não compartilhe senhas, cookies ou tokens em prompts, issues ou logs.
-
-</details>
-
-<details>
-<summary><strong>Funciona em Docker ou em um servidor remoto?</strong></summary>
-
-O servidor precisa acessar um navegador operacional com sua sessão do Flow. O repositório não inclui uma imagem Docker pronta nem um Compose oficial. Em ambientes remotos, use acesso seguro e não exponha MCP, REST ou CDP publicamente.
-
-</details>
-
-<details>
-<summary><strong>Posso executar MCP e REST ao mesmo tempo?</strong></summary>
-
-Não com as portas padrão: ambos iniciam a ponte `9233`. Escolha uma entrada por vez. Mudar só a porta do servidor não reconfigura a extensão.
-
-</details>
-
-<details>
-<summary><strong>Um timeout significa que a geração falhou?</strong></summary>
-
-Não. `submitted_unverified` significa resultado incerto. Consulte o job e o projeto antes de reenviar; a geração pode ter ocorrido e consumido créditos.
-
-</details>
-
-## 📚 Guia completo
-
-- [Requisitos](#requisitos) · [Instalação](#setup)
-- [MCP](#mcp) · [REST e exemplos](#rest)
-- [Segurança e créditos](#segurança-e-créditos)
-- [Compatibilidade e limitações](#compatibilidade-e-limitações)
-- [Desenvolvimento](#desenvolvimento) · [Solução de problemas](#solução-de-problemas)
-- [Contribuições](#contribuições) · [Créditos e licença](#créditos-e-licença)
-
----
-
-## Requisitos
-
-- Python **3.11 ou superior**.
-- `uv` para gerenciamento do ambiente, ou Python com `pip` em um ambiente virtual.
-- Google Chrome **116 ou superior**.
-- Conta com acesso ao Google Flow e créditos quando exigidos pela operação.
-- Um cliente compatível com MCP, caso escolha essa integração.
-- Node.js com suporte a `node --test` para executar os testes da extensão.
-
-<a id="setup"></a>
-## Instalação
-
-### 1. Preparar o ambiente
-
-Na raiz do projeto:
-
-```bash
-uv sync --extra dev
-```
-
-Para instalar apenas as dependências de execução:
-
-```bash
-uv sync
-```
-
-Alternativamente, em um ambiente virtual já ativado:
-
-```bash
-python -m pip install -e ".[dev]"
-```
-
-### 2. Carregar a extensão
-
-1. Abra `chrome://extensions` no Chrome.
-2. Ative o **Modo do desenvolvedor**.
-3. Escolha **Carregar sem compactação** e selecione a pasta `extension/`.
-4. Abra [Google Flow](https://flow.google.com/) com sua conta autenticada e mantenha a aba aberta.
-5. Configure e inicie uma das integrações abaixo.
-6. No popup da extensão, habilite a conexão.
-7. Compare o código de pareamento exibido na extensão antes de aprovar a conexão pelo cliente.
-
-Após atualizar arquivos de uma extensão sem compactação, use **Recarregar** em `chrome://extensions` e depois recarregue a aba do Flow. Esse passo aplica a atualização ao navegador.
-
 <a id="mcp"></a>
 ## Integração MCP
 
-### Cliente local
+OpenFlow é um **servidor de ferramentas MCP**, não um provedor de chat ou uma API compatível com OpenAI. Use um cliente com suporte a ferramentas MCP, como OpenCode, Claude Code, Codex, Cursor, Cline ou Hermes Agent. Cada cliente tem seu próprio formato de configuração.
 
-Para um cliente como o OpenCode, adicione a configuração abaixo ao arquivo de configuração do cliente. Substitua o caminho absoluto pelo diretório deste projeto:
+### Exemplo: OpenCode
+
+Substitua o caminho absoluto pelo diretório do clone. O cliente inicia o processo stdio; não abra outro servidor manualmente.
 
 ```json
 {
@@ -290,11 +110,8 @@ Para um cliente como o OpenCode, adicione a configuração abaixo ao arquivo de 
     "openflow": {
       "type": "local",
       "command": [
-        "uv",
-        "--project",
-        "/caminho/absoluto/openflow",
-        "run",
-        "openflow"
+        "uv", "--project", "/caminho/absoluto/openflow",
+        "run", "--extra", "browser", "openflow"
       ],
       "enabled": true
     }
@@ -302,213 +119,299 @@ Para um cliente como o OpenCode, adicione a configuração abaixo ao arquivo de 
 }
 ```
 
-No Windows, use um caminho como `C:\\Projects\\openflow`. O cliente inicia o servidor em modo stdio; não é necessário abrir outro processo MCP manualmente.
-
-Com `pip`, configure o cliente para executar o Python do ambiente virtual com os argumentos `-m flow_mcp.server`.
-
-### Fluxo de uso
-
-1. Consulte `list_connections` e `list_pairing_requests`.
-2. Execute `approve_connection` somente após o usuário conferir o código da extensão.
-3. Use `get_connection` e `select_flow_tab` para selecionar a aba e seu documento.
-4. Solicite a operação, como `generate_image`, `generate_video` ou `upload`, com `confirm=false`.
-5. Apresente a prévia ao usuário e aguarde aprovação.
-6. Repita a operação com os mesmos dados, `confirm=true` e o `preview_id` retornado.
-7. Consulte `get_job` com `refresh=true` e use `download` quando o resultado estiver disponível.
-
-**Não reenvie automaticamente um job em `submitted_unverified`.** A submissão pode ter ocorrido mesmo sem confirmação de resposta, e uma nova tentativa pode gerar cobrança duplicada.
-
-### Cliente em outra máquina
-
-> Se a extensão não conectar no modo HTTP, use stdio ou REST e consulte a seção de solução de problemas. A conexão do cliente MCP e a conexão da extensão precisam estar ativas para executar operações.
-
-Na máquina do Chrome:
+Comando stdio para outros clientes:
 
 ```bash
-uv run openflow --transport streamable-http --host 0.0.0.0 --mcp-port 8000
+uv --project /caminho/absoluto/openflow run --extra browser openflow
 ```
 
-No cliente MCP:
+No Windows, use um caminho como `C:\\Projects\\openflow` no JSON.
 
-```json
-{
-  "mcp": {
-    "openflow": {
-      "type": "remote",
-      "url": "http://<ip-da-maquina-do-chrome>:8000/mcp",
-      "enabled": true
-    }
-  }
-}
+### Ferramentas e sequência
+
+1. `list_connections`: obtenha o `connection_id` do navegador gerenciado, sem pareamento.
+2. `list_projects`: escolha o `project_id` desejado. A listagem retorna à home; faça isso **antes** da prévia, pois navegar invalida prévias de outro documento.
+3. `generate_image`, `generate_video`, `upload` ou upscale com `confirm=false`: prepare a operação. A página entra no projeto antes de vincular a prévia.
+4. Apresente as entradas ao usuário e aguarde aprovação.
+5. Repita a chamada com as mesmas entradas, `confirm=true` e **`preview_id` igual ao `job_id` retornado na prévia**.
+6. Consulte `get_job` com `refresh=true`, quando necessário, e use `download` após `completed`.
+
+`create_project` também usa prévia e confirmação; após a criação, o navegador abre o novo projeto. `get_account_status` e `refresh_account` verificam a conta visível e consultam o saldo por HTTPS no navegador gerenciado, sem abrir painéis. O retorno informa `credits`, `credits_source` e `credits_freshness`; uma leitura indisponível retorna `null`, nunca um saldo estimado ou anterior.
+
+### MCP via HTTP
+
+Como alternativa ao stdio:
+
+```bash
+uv run --extra browser openflow --transport streamable-http --host 127.0.0.1 --mcp-port 8000
 ```
 
-`0.0.0.0` expõe o serviço nas interfaces de rede da máquina. Restrinja o acesso no firewall a clientes confiáveis e use uma camada de autenticação e transporte seguro quando necessário. Não publique essa porta diretamente na internet.
+Endpoint: `http://127.0.0.1:8000/mcp`. Para clientes remotos, use túnel ou uma camada autenticada e transporte seguro. Não publique a porta diretamente na internet. O servidor deve ter acesso ao navegador, perfil e sessão do sistema operacional usados no login.
 
 <a id="rest"></a>
 ## API REST
 
-Como alternativa ao MCP, inicie a API na máquina do Chrome:
-
 ```bash
-uv run openflow-api --host 127.0.0.1 --api-port 8100
+uv run --extra browser openflow-api --host 127.0.0.1 --api-port 8100
 ```
 
-Documentação local enquanto o servidor estiver em execução:
+[Swagger UI](http://127.0.0.1:8100/docs) · [ReDoc](http://127.0.0.1:8100/redoc) · [OpenAPI](http://127.0.0.1:8100/openapi.json) — disponíveis enquanto a API local estiver executando.
 
-- Swagger UI: `http://127.0.0.1:8100/docs`
-- ReDoc: `http://127.0.0.1:8100/redoc`
-- OpenAPI: `http://127.0.0.1:8100/openapi.json`
+### Exemplo: gerar e baixar uma imagem
 
-### Principais endpoints
+Os comandos abaixo usam Bash, `curl` e `jq`. Execute em sequência no mesmo terminal. O exemplo não escolhe um projeto nem confirma uma geração automaticamente.
+
+**1. Consulte a conexão e os projetos:**
+
+```bash
+BASE=http://127.0.0.1:8100
+curl -fsS "$BASE/connections" | jq
+
+# Copie o identificador retornado; substitua os placeholders.
+CONNECTION_ID='<connection_id>'
+curl -fsS --get "$BASE/projects" \
+  --data-urlencode "connection_id=$CONNECTION_ID" | jq '.projects'
+PROJECT_ID='<project_id>'
+```
+
+**2. Prepare uma prévia, sem gerar mídia:**
+
+```bash
+INPUT='{"prompt":"Portal circular de titânio e basalto, costa fantástica, água turquesa e luz âmbar","model":"nano_banana_2","ratio":"16:9","references":[]}'
+
+BODY=$(jq -n --arg c "$CONNECTION_ID" --arg p "$PROJECT_ID" --argjson i "$INPUT" \
+  '{connection_id:$c, project_id:$p, input:$i, confirm:false}')
+PREVIEW=$(curl -fsS "$BASE/images" -H 'Content-Type: application/json' -d "$BODY")
+printf '%s\n' "$PREVIEW" | jq
+PREVIEW_ID=$(printf '%s' "$PREVIEW" | jq -er 'select(.state == "preview") | .job_id')
+```
+
+**3. Somente após conferir a prévia e obter aprovação humana**, execute o bloco separado abaixo. Pode consumir créditos. Não altere `BODY`, não liste projetos nem mude o documento entre a prévia e a confirmação.
+
+```bash
+CONFIRM=$(printf '%s' "$BODY" | jq --arg id "$PREVIEW_ID" \
+  '.confirm = true | .preview_id = $id')
+RESULT=$(curl -fsS "$BASE/images" -H 'Content-Type: application/json' -d "$CONFIRM")
+printf '%s\n' "$RESULT" | jq '{job_id, state}'
+JOB_ID=$(printf '%s' "$RESULT" | jq -er '.job_id')
+```
+
+**4. Consulte o job, sem reenviar a geração:**
+
+```bash
+curl -fsS --get "$BASE/jobs/$JOB_ID" \
+  --data-urlencode "connection_id=$CONNECTION_ID" \
+  --data-urlencode "project_id=$PROJECT_ID" \
+  --data-urlencode 'refresh=true' | jq '{job_id, state}'
+```
+
+Se estiver `pending`, consulte novamente mais tarde. **`submitted_unverified` não significa falha:** verifique o job e o projeto manualmente antes de qualquer nova submissão.
+
+**5. Apenas após `completed`, baixe o resultado:**
+
+```bash
+# Caminho absoluto na máquina do servidor; pasta existente e arquivo ainda inexistente.
+DESTINATION='/caminho/absoluto/resultado.jpg'
+jq -n --arg c "$CONNECTION_ID" --arg p "$PROJECT_ID" --arg d "$DESTINATION" \
+  '{connection_id:$c, project_id:$p, destination:$d, asset_index:0}' |
+  curl -fsS "$BASE/jobs/$JOB_ID/download" -H 'Content-Type: application/json' --data-binary @-
+```
+
+O download aceita somente resultados de um job concluído e do escopo correspondente. No upscale de imagem, o Flow pode devolver a imagem embutida em vez de um asset com URL: nesse caso, `result.inline_image_available` e `result.download_available` são `true`; use o mesmo endpoint de download com `asset_index: 0`, mesmo com `assets: []`. O retorno do download inclui a resolução solicitada e as dimensões observadas, quando disponíveis; isso não comprova qualidade visual. Não recebe uma URL arbitrária nem sobrescreve arquivos existentes.
+
+### Endpoints principais
 
 | Método | Rota | Finalidade |
 | --- | --- | --- |
 | `GET` | `/health` | Estado do serviço |
-| `GET` | `/connections` | Conexões e pareamentos pendentes |
-| `GET` | `/pairings` | Solicitações de pareamento |
-| `POST` | `/pairings/{pairing_id}/approve` | Aprovar pareamento conferido pelo usuário |
-| `GET` | `/connections/{connection_id}` | Consultar conexão e abas |
-| `POST` | `/connections/{connection_id}/select` | Selecionar aba com `tab_id` |
-| `GET` | `/connections/{connection_id}/account` | Consultar conta |
+| `GET` | `/connections` | Conexões disponíveis |
+| `GET` | `/connections/{connection_id}` | Contexto do navegador |
+| `GET` | `/connections/{connection_id}/account` | Evidências de conta; `refresh=true` para atualizar |
+| `GET` | `/projects` | Listar projetos com `connection_id` |
 | `POST` | `/projects` | Preparar ou confirmar criação de projeto |
-| `POST` | `/images` | Preparar ou confirmar geração de imagem |
-| `POST` | `/videos` | Preparar ou confirmar geração de vídeo |
-| `POST` | `/images/upscale` | Preparar ou confirmar upscale de imagem |
-| `POST` | `/videos/upscale` | Preparar ou confirmar upscale de vídeo |
-| `POST` | `/uploads` | Preparar ou confirmar upload |
-| `GET` | `/jobs/{job_id}` | Consultar ou atualizar job |
+| `POST` | `/images`, `/videos` | Preparar ou confirmar geração |
+| `POST` | `/images/upscale`, `/videos/upscale` | Preparar ou confirmar upscale |
+| `POST` | `/uploads` | Preparar ou confirmar upload PNG/JPEG/WebP, até 8 MiB |
+| `GET` | `/jobs/{job_id}` | Consultar ou atualizar job com conexão/projeto |
 | `POST` | `/jobs/{job_id}/download` | Salvar resultado na máquina do servidor |
 
-### Exemplo: prévia de imagem
+Os schemas completos e endpoints de compatibilidade estão no OpenAPI local. Não publique respostas com URLs assinadas, dados privados ou informações de conta.
 
-Após aprovar o pareamento e selecionar a aba, envie `POST /images` com os identificadores reais da conexão e do projeto:
+<a id="architecture"></a>
+## Como funciona
 
-```json
-{
-  "connection_id": "<connection_id>",
-  "project_id": "<project_id>",
-  "input": {
-    "prompt": "Imagem de campanha de um perfume sobre pedra escura, iluminação lateral, fundo minimalista",
-    "model": "nano_banana_2",
-    "ratio": "1:1",
-    "references": []
-  },
-  "confirm": false
-}
+```text
+  Agente MCP                     Aplicação REST
+      │                                │
+      ▼                                ▼
+ Servidor MCP                     API FastAPI
+      └────────────────┬───────────────┘
+                       ▼
+             Operações + jobs SQLite
+                       │
+                       ▼
+          Chromium dedicado e gerenciado
+             Sua sessão autenticada
+                       │
+              HTTPS no projeto do Flow
+                       ▼
+             Imagens · Vídeos · Assets
 ```
 
-Depois de conferir a prévia e obter aprovação humana, reenvie o mesmo corpo com `confirm` definido como `true` e o campo `preview_id` preenchido com o identificador da prévia retornada. Não altere os dados da operação entre prévia e confirmação.
+- **Sem extensão no fluxo padrão.** O OpenFlow usa um navegador próprio com perfil persistente, sem compartilhar seu perfil pessoal.
+- **Sem cliques de geração.** As operações são chamadas HTTPS no contexto autenticado; a navegação abre o projeto solicitado antes de preparar a prévia.
+- **Projeto obrigatório.** A confirmação exige os mesmos dados, projeto e documento da prévia. Se o contexto mudar, prepare uma nova prévia; o sistema não navega para ressuscitar a anterior.
+- **Submissões incertas.** Jobs de resultado incerto ficam identificados para verificação, não são automaticamente ressubmetidos.
 
-Para atualizar o job, use `GET /jobs/{job_id}` com os parâmetros de consulta `connection_id`, `project_id` e `refresh=true`. Os schemas completos estão na documentação OpenAPI local.
+<a id="security"></a>
+## Segurança, conta e créditos
 
-## Segurança e créditos
+- **Créditos.** OpenFlow não fornece créditos nem altera os limites da assinatura. Acesso, modelos e créditos são definidos pelo Google Flow. Confira custos na interface antes de confirmar; o sistema não garante leitura do saldo.
+- **Prévia não é autorização.** Agentes e clientes devem apresentar as entradas e obter aprovação humana antes de executar operações confirmadas.
+- **Resultado incerto não deve ser reenviado automaticamente.** Um timeout pode ocorrer depois de a operação ter sido aceita e consumido créditos.
+- **Proteja o perfil persistente.** Ele contém cookies e dados que permitem acesso à conta. Não compartilhe, versione ou anexe a issues. O navegador usa perfil dedicado e não expõe uma porta TCP de depuração.
+- **HTTP é acesso privilegiado.** A API REST não implementa autenticação HTTP própria, pode ler arquivos locais para upload e gravar downloads. Mantenha o serviço local; para acesso remoto, adicione controle de acesso e transporte seguro.
+- **Nunca exponha credenciais.** Não publique senhas, cookies, tokens, URLs assinadas, bancos de jobs ou segredos legados em prompts, issues ou logs.
+- **Respeite termos e direitos.** A licença do código não concede direitos sobre serviços ou resultados de terceiros.
 
-- Mantenha MCP e REST locais sempre que possível. O pareamento da extensão não substitui autenticação de acesso ao servidor HTTP.
-- A API REST atual não implementa autenticação HTTP própria e pode ler arquivos locais para upload e gravar downloads. Trate o acesso a ela como acesso privilegiado à máquina.
-- Confira a conta, a aba selecionada e a prévia antes de confirmar operações.
-- Uma prévia não representa autorização para executar. Clientes e agentes devem solicitar aprovação humana antes da confirmação.
-- Consulte os custos e a disponibilidade na interface do Flow; estimativas documentadas podem ficar desatualizadas.
-- Não compartilhe cookies, tokens, segredos de pareamento, bancos de jobs ou dados privados em issues e logs.
-- Respeite os termos do Google Flow e os direitos sobre conteúdos enviados e gerados. A licença do código não concede direitos sobre serviços ou resultados de terceiros.
+### Perfil e renovação do login
+
+No Linux, o perfil padrão fica em `~/.local/share/openflow/browser/profile`. Quando `LOCALAPPDATA` está definido, o diretório-base é `LOCALAPPDATA/openflow/browser` e o perfil fica em `profile/`.
+
+Uma trava impede duas instâncias usando o mesmo perfil. Encerre MCP/REST antes de abrir setup ou diagnóstico. No Linux, o processo precisa acessar o keyring/DBus da sessão usada no login.
+
+```bash
+# Inspeciona o login salvo e encerra; não gera mídia.
+uv run --extra browser openflow browser inspect
+
+# Renova o login em uma janela normal, depois de encerrar o servidor.
+uv run --extra browser openflow setup
+```
+
+`inspect` omite email, cookies e parâmetros da URL. `account_observed` indica evidência visível de conta, **não** acesso garantido à geração, plano ou créditos. Outros estados incluem `login_required`, `unknown` e `navigation_failed`. Diagnósticos não abrem painéis de conta.
 
 ## Compatibilidade e limitações
 
-O projeto utiliza chamadas internas do Flow no contexto do navegador, não uma API pública estável de geração. Mudanças no serviço, no reCAPTCHA, nos modelos ou nos planos podem interromper operações.
+O projeto utiliza interfaces internas do Flow no contexto do navegador, não uma API pública estável de geração. Alterações no serviço, autenticação, reCAPTCHA, modelos ou planos podem interromper operações. Não há garantia de compatibilidade headless.
 
-- `veo_lite_low_priority` e `veo_fast_ultra` estão documentados como não implementados.
-- O suporte descrito para upscale de imagem é 2K; não há garantia de suporte a 4K.
-- A extensão está configurada para a ponte local na porta `9233`. Alterar apenas a porta do servidor não reconfigura a extensão.
-- Jobs interrompidos podem exigir verificação manual antes de qualquer nova submissão.
+- Referências devem pertencer ao projeto e escopo correspondentes.
+- Listar projetos retorna à home e pode invalidar prévias de outro documento.
+- A troca de conta/documento exige nova prévia; não altere o contexto enquanto aguarda um resultado.
+- O schema aceita upscale de imagem 2K/4K, mas disponibilidade depende da conta; 4K exige Ultra e não é garantido.
+- Upscale de vídeo exige `scene_id` real; não invente identificadores.
+- Veo Lite requer quadro inicial, 8 s e 720p. `veo_lite_low_priority` e `veo_fast_ultra` não são opções implementadas.
+- O repositório não fornece imagem Docker ou Compose oficial. Um ambiente remoto precisa de navegador operacional, setup manual e acesso seguro ao perfil/keyring.
 
-## Desenvolvimento
+## Exemplo de geração
 
-### Estrutura
+<details>
+<summary>Imagem gerada via REST com Nano Banana 2.1</summary>
 
-```text
-openflow/
-├── src/flow_mcp/       Servidores, ponte, operações e persistência
-│   ├── server.py      Entrada MCP
-│   ├── api.py         Entrada REST
-│   ├── service.py     Operações compartilhadas
-│   ├── bridge.py      Ponte WebSocket
-│   ├── manager.py     Conexões e seleção de contexto
-│   ├── pairing.py     Pareamento da extensão
-│   └── jobs.py        Persistência dos jobs
-├── extension/         Extensão Chrome Manifest V3
-│   └── tests/         Testes JavaScript
-├── tests/             Testes Python
-├── docs/              Verificações e diagnósticos técnicos
-├── pyproject.toml     Dependências e ferramentas de qualidade
-└── LICENSE            Licença MIT original
-```
+![Portal arquitetônico — imagem gerada por IA pelo OpenFlow](assets/flow-showcase/portal.jpg)
 
-### Verificações locais
+Nano Banana 2.1 (`nano_banana_2`), proporção `16:9`, saída de 1376 × 768. Gerada via REST no navegador gerenciado, sem extensão. É uma imagem estática gerada por IA, não uma fotografia ou vídeo.
 
-Instale as dependências com `uv sync --extra dev` e execute, na raiz:
+Prompt resumido: portal circular de titânio e basalto sobre uma costa fantástica, água turquesa e luz âmbar. [Prompt completo e informações do arquivo](assets/README.md).
 
-```bash
-uv run pytest
-uv run ruff check .
-uv run mypy
-node --test extension/tests/*.test.mjs
-```
-
-A suíte cobre contratos, pareamento, operações e persistência. Testes que executam gerações no Flow podem consumir créditos e exigem autorização.
+</details>
 
 ## Solução de problemas
 
 | Sintoma | O que verificar |
 | --- | --- |
-| Extensão não conecta | Servidor ativo, conexão habilitada no popup e porta `9233` disponível |
-| Porta já em uso | Outro processo MCP ou REST pode estar executando a mesma ponte |
-| Pareamento pendente | Compare o código da extensão antes de aprovar a solicitação |
-| Aba não disponível | Abra o Flow autenticado, consulte a conexão e selecione a aba novamente |
-| Falha após atualizar a extensão | Recarregue a aba do Flow para executar os scripts da versão atual |
-| `submitted_unverified` | Verifique o job e o Flow antes de qualquer reenvio |
-| `rpc_rejected` | Confira o modelo, as entradas e os recursos disponíveis na sua conta; atualize a extensão |
-| `native_recaptcha_automation_unsupported` | A integração de reCAPTCHA esperada não está disponível; recarregue a aba e verifique a compatibilidade |
+| Chromium/Playwright ausente | Instale o extra `browser` e execute `playwright install chromium --no-shell` |
+| Login indisponível ou expirado | Encerre o servidor e execute `openflow setup`; conclua verificações manualmente |
+| Perfil em uso | Feche setup, diagnóstico ou outro MCP/REST que esteja usando o mesmo perfil; não remova o lock para forçar concorrência |
+| Login salvo não reconhecido no Linux | Execute na sessão com acesso ao mesmo keyring/DBus usado no setup |
+| Chromium não inicia no Linux | Confira as dependências de sistema exigidas pelo Playwright |
+| `scope_changed` ou projeto divergente | Confira o projeto e prepare nova prévia; não reutilize confirmação de outro documento |
+| `submitted_unverified` | Consulte o job e o projeto; não reenvie automaticamente |
+| `rpc_rejected` | Confira entradas, modelo e recursos da conta; interfaces internas podem ter mudado |
+| `native_recaptcha_automation_unsupported` | A integração esperada não está disponível; verifique a compatibilidade da versão e conclua desafios manuais pelo setup quando necessário |
 
-## Contribuições
+## Backend legado: extensão
 
-Contribuições de código, testes e documentação são bem-vindas.
+<details>
+<summary><strong>Instalação e pareamento da extensão antiga — opcional, não necessário no fluxo padrão</strong></summary>
 
-1. Descreva o problema ou a mudança proposta, incluindo passos de reprodução quando aplicável.
-2. Mantenha as alterações focadas e siga os padrões existentes em Python e JavaScript.
-3. Adicione ou ajuste testes quando mudar comportamento.
-4. Execute as verificações locais antes de enviar uma contribuição.
-5. Informe quais verificações foram realizadas e se houve testes reais no Flow.
+Este modo usa Google Chrome 116+ e a ponte WebSocket local na porta `9233`, em vez do navegador gerenciado.
 
-Ao relatar problemas, inclua versões do Python, Chrome e extensão, além de mensagens de erro sanitizadas. Não inclua credenciais, dados de conta ou arquivos de mídia privados.
+1. Abra `chrome://extensions`, ative **Modo do desenvolvedor** e escolha **Carregar sem compactação** na pasta `extension/`.
+2. Abra o Flow autenticado e o projeto desejado.
+3. Inicie uma entrada explicitamente em modo legado:
+
+```bash
+# MCP stdio
+uv run openflow --backend extension
+
+# OU REST
+uv run openflow-api --backend extension --host 127.0.0.1 --api-port 8100
+```
+
+4. Habilite a conexão no popup e compare o código antes de aprovar o pareamento.
+5. No MCP, use `list_connections` / `list_pairing_requests`, depois `approve_connection` somente com confirmação humana do código.
+6. Use `get_connection` e `select_flow_tab` para fixar o projeto/documento antes da prévia. Prévia e confirmação continuam obrigatórias.
+
+REST mantém `/pairings`, `/pairings/{pairing_id}/approve` e `/connections/{connection_id}/select` para esse fluxo. Pareamento não substitui autenticação de acesso ao servidor HTTP.
+
+Se não conectar, confira o servidor, popup e porta `9233`. Alterar a porta da ponte no servidor não reconfigura a extensão. Após atualizar a extensão, recarregue-a em `chrome://extensions` e recarregue a aba do Flow.
+
+</details>
+
+## Desenvolvimento
+
+```text
+src/flow_mcp/
+├── cli.py             Setup e comandos de navegador
+├── browser.py         Perfil, lock e sessão Chromium
+├── managed.py         Backend sem extensão e contexto de projeto
+├── server.py          Servidor MCP
+├── api.py             API REST
+├── service.py         Operações compartilhadas e downloads
+├── manager.py         Conexões e escopo
+├── jobs.py            Persistência SQLite
+└── bridge.py          Ponte legada da extensão
+extension/             Backend legado e runtime HTTPS compartilhado
+tests/                 Testes Python
+docs/                  Diagnósticos técnicos
+assets/                Capa e demonstração gerada pelo OpenFlow
+scripts/build_banner.py Composição reproduzível da capa
+```
+
+```bash
+uv sync --extra browser --extra dev
+uv run --extra browser --extra dev pytest
+uv run --extra browser --extra dev ruff check .
+uv run --extra browser --extra dev mypy
+node --test extension/tests/*.test.mjs
+```
+
+Node.js é necessário apenas para os testes JavaScript. Testes reais de geração podem consumir créditos e exigem autorização.
+
+## Contribuição
+
+Contribuições de código, testes e documentação são bem-vindas. Mantenha as mudanças focadas, descreva passos de reprodução e execute as verificações pertinentes. Ao relatar problemas, inclua versões do Python, Playwright/Chromium e erros sanitizados; não envie dados de conta ou mídia privada.
+
+## Contribuidores
+
+[![Contribuidores do OpenFlow](https://contrib.rocks/image?repo=codexfast/openflow)](https://github.com/codexfast/openflow/graphs/contributors)
+
+A lista é baseada nas contribuições registradas pelo GitHub. A atribuição do código original está na seção de créditos abaixo.
+
+## Histórico de estrelas
+
+[![Histórico de estrelas do OpenFlow](https://starchart.cc/codexfast/openflow.svg?variant=adaptive)](https://starchart.cc/codexfast/openflow)
 
 ## Créditos e licença
 
-Este projeto deriva do código de **tuannguyenhoangit-droid**. A autoria original é reconhecida e o aviso de copyright foi mantido sem alterações:
+Este projeto deriva do código de **tuannguyenhoangit-droid**. A autoria original é reconhecida e o aviso de copyright permanece preservado:
 
 ```text
 Copyright (c) 2026 tuannguyenhoangit-droid
 ```
 
-Distribuído sob a [licença MIT](LICENSE), que permite uso, cópia, modificação, distribuição e uso comercial, inclusive venda, desde que sejam preservados os avisos exigidos pela licença. O software é fornecido sem garantias, conforme o texto integral da licença.
+Distribuído sob a [licença MIT](LICENSE), que permite uso, cópia, modificação, distribuição e uso comercial, inclusive venda, desde que sejam preservados os avisos exigidos pela licença. O software é fornecido sem garantias.
 
 Google, Google Flow e os nomes dos modelos pertencem aos respectivos titulares. Sua menção descreve compatibilidade e não implica afiliação.
 
-
-## 🛠️ Stack
-
-Python · MCP SDK · FastAPI · Uvicorn · WebSockets · Pydantic · httpx · SQLite · Chrome Manifest V3 · JavaScript ES Modules.
-
-## 📧 Suporte
-
-- [Relatar bug](https://github.com/codexfast/openflow/issues/new): inclua versões, passos de reprodução e erros sanitizados.
-- [Propor melhoria](https://github.com/codexfast/openflow/issues): descreva o caso de uso antes de implementar mudanças grandes.
-- [Enviar contribuição](https://github.com/codexfast/openflow/pulls): alterações focadas, testes e registro do que foi validado.
-
-Não publique dados de conta, tokens, URLs assinadas de mídia ou bancos de jobs.
-
-## 👥 Contribuidores
-
-Veja os [contribuidores do repositório](https://github.com/codexfast/openflow/graphs/contributors). O crédito do código original permanece na licença e na seção acima.
-
-## ⭐ Acompanhe o projeto
-
-Gostou do projeto? Deixe uma estrela e acompanhe as próximas atualizações. [Stars](https://github.com/codexfast/openflow/stargazers) · [Forks](https://github.com/codexfast/openflow/forks) · [Histórico](https://github.com/codexfast/openflow/commits/main).
+[Relatar bug ou propor melhoria](https://github.com/codexfast/openflow/issues) · [Contribuir](https://github.com/codexfast/openflow/pulls) · [Contribuidores](https://github.com/codexfast/openflow/graphs/contributors)

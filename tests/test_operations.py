@@ -912,3 +912,31 @@ def test_describe_reply_bounds_many_keys():
     assert len(described["reply_keys"]) == 32
     assert described["reply_keys_truncated"] == 100
 
+
+
+async def test_inline_upscale_download_contains_real_png_dimensions(tmp_path):
+    import struct
+    import zlib
+
+    _, session, _, scope, jobs, ops = setup(tmp_path)
+
+    def chunk(kind, data):
+        return (struct.pack('!I', len(data)) + kind + data
+                + struct.pack('!I', zlib.crc32(kind + data)))
+
+    content = (b'\x89PNG\r\n\x1a\n'
+               + chunk(b'IHDR', struct.pack('!2I5B', 2, 2, 8, 2, 0, 0, 0))
+               + chunk(b'IDAT', zlib.compress((b'\x00' + b'\x00\x80\x80' * 2) * 2))
+               + chunk(b'IEND', b''))
+    identity = jobs.create(session.id, scope, 'upscale_image', {'resolution': '2K'})
+    jobs.update(identity, 'completed', {'encoded_image': base64.b64encode(content).decode()})
+    public = ops.public(jobs.get(identity))
+    assert public['result']['download_available']
+    assert public['result']['download_asset_index'] == 0
+    assert 'encoded_image' not in public['result']
+    result = await ops.download(identity, session.id, scope.project_id,
+                                str(tmp_path / 'inline.png'), 0)
+    assert (result['width'], result['height']) == (2, 2)
+    assert result['requested_resolution'] == '2K'
+    # Requested resolution must not be confused with observed output dimensions.
+    assert not result['quality_verified']
