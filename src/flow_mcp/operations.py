@@ -1,6 +1,6 @@
 from typing import Annotated, Literal
 
-from pydantic import Field, model_validator
+from pydantic import AfterValidator, Field, model_validator
 
 from flow_mcp.models import Scope, StrictModel
 
@@ -11,6 +11,18 @@ MediaIdentifier = Annotated[
     str,
     Field(pattern=r"^[a-fA-F0-9]{8}(?:-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}(?:_upsampled)?$"),
 ]
+
+
+def nonblank_title(value: str) -> str:
+    if not value.strip():
+        raise ValueError("title_must_not_be_blank")
+    return value
+
+
+ProjectTitle = Annotated[
+    str, Field(strict=True, min_length=1, max_length=200), AfterValidator(nonblank_title)
+]
+
 ImageModel = Literal["nano_banana_pro", "nano_banana_2", "nano_banana_lite"]
 
 ScalarType = Literal["null", "string", "number", "boolean", "object", "undefined"]
@@ -28,6 +40,7 @@ class ImageInput(StrictModel):
     model: ImageModel = "nano_banana_2"
     ratio: Literal["1:1", "9:16", "16:9", "3:4", "4:3"] = "1:1"
     references: list[Identifier] = Field(default_factory=list, max_length=4)
+    seed: int | None = Field(default=None, strict=True, ge=1, le=1_000_000_000)
 
 
 class VideoInput(StrictModel):
@@ -82,8 +95,8 @@ class Asset(StrictModel):
 
 
 RpcName = Literal[
-    "jHPbke", "Zzl0ze", "UpteDb", "jwpduf", "as29s", "SPrCad", "p0UkFb", "maseQ", "ogiZ0b",
-    "MZZa6b", "nprQif", "eb1hJf", "YhhmEf",
+    "QI2zvc", "jHPbke", "Zzl0ze", "UpteDb", "jwpduf", "as29s", "SPrCad", "p0UkFb", "maseQ",
+    "ogiZ0b", "MZZa6b", "nprQif", "eb1hJf", "YhhmEf",
 ]
 DiagnosticPhase = Literal["preflight", "transport", "body", "parse", "validate"]
 
@@ -120,3 +133,42 @@ class PollInput(StrictModel):
     operation_id: Identifier | None = None
     media_id: MediaIdentifier | None = None
     kind: Literal["image", "video"]
+
+
+class DeleteProjectInput(StrictModel):
+    project_id: Identifier
+    expected_title: str = Field(min_length=1, max_length=10000)
+    account_sha256: str = Field(pattern=r"^[a-f0-9]{64}$", repr=False)
+
+
+class DeleteProjectReply(StrictModel):
+    scope: Scope
+    state: Literal["completed", "not_submitted", "submitted_unverified"]
+    deleted_project_id: Identifier | None = None
+    error: str | None = Field(default=None, max_length=160)
+
+
+# Remote scene-linked catalog, deliberately independent of generation Outcome/assets.
+CatalogLimit = Annotated[int, Field(strict=True, ge=1, le=100)]
+
+class CatalogInput(StrictModel):
+    limit: CatalogLimit = 100
+
+class CatalogItem(StrictModel):
+    media_id: MediaIdentifier
+    scene_id: Identifier
+    kind: Literal["unknown"] = "unknown"
+
+class ProjectMediaCatalog(StrictModel):
+    scope: Scope
+    state: Literal["completed"]
+    items: list[CatalogItem] = Field(max_length=100)
+    source: Literal["remote_project_scenes"]
+    completeness: Literal["unknown"]
+    truncated: bool
+
+    @model_validator(mode="after")
+    def unique_scenes(self) -> "ProjectMediaCatalog":
+        if len({item.scene_id.lower() for item in self.items}) != len(self.items):
+            raise ValueError("invalid_catalog_response")
+        return self

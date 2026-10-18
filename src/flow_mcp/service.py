@@ -12,15 +12,18 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 import httpx
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from flow_mcp.jobs import Jobs
 from flow_mcp.manager import BridgeError, Manager, Session
 from flow_mcp.models import Scope, StrictModel
 from flow_mcp.operations import (
     BRIDGE_OR_RESPONSE_VALIDATION,
+    DeleteProjectInput,
+    DeleteProjectReply,
     Outcome,
     PollInput,
+    ProjectTitle,
     RpcDiagnostics,
     UploadInput,
 )
@@ -358,7 +361,10 @@ class Operations:
     async def create_project(
         self, connection_id: str, confirm: bool, preview_id: str | None,
         diagnostics: bool = False,
+        title: ProjectTitle = "OpenFlow project",
     ) -> dict[str, object]:
+        title = TypeAdapter(ProjectTitle).validate_python(title)
+        project_input = {"transport": "jHPbke", "title": title}
         if confirm:
             if preview_id is None:
                 raise ValueError("preview_id_required")
@@ -366,6 +372,7 @@ class Operations:
             if (
                 previous["connection_id"] != connection_id
                 or previous["operation"] != "create_project"
+                or previous["input"] != project_input
             ):
                 raise BridgeError("preview_scope_or_input_mismatch")
             if previous["state"] != "preview":
@@ -380,14 +387,14 @@ class Operations:
             if not confirm:
                 identity = self.jobs.create(
                     connection_id, scope, "create_project",
-                    {"transport": "jHPbke", "title": "OpenFlow project"},
+                    project_input,
                 )
                 return {
                     **self.public(self.jobs.get(identity)),
                     "confirmation_required": True,
                     "may_consume_credits": False,
                     "preview": {
-                        "rpc": "jHPbke", "title": "OpenFlow project",
+                        "rpc": "jHPbke", "title": title,
                         "navigation": False, "paid_generation": False,
                     },
                 }
@@ -395,7 +402,7 @@ class Operations:
             job = self.jobs.get(preview_id)
             if (
                 job["scope"] != scope.model_dump()
-                or job["input"] != {"transport": "jHPbke", "title": "OpenFlow project"}
+                or job["input"] != project_input
             ):
                 raise BridgeError("preview_scope_or_input_mismatch")
             if job["state"] != "preview":
@@ -405,7 +412,8 @@ class Operations:
             try:
                 result = await self.manager.request(
                     session, "create_project",
-                    {"scope": scope.model_dump(), **({"diagnostics": True} if diagnostics else {})},
+                    {"scope": scope.model_dump(), "title": title,
+                     **({"diagnostics": True} if diagnostics else {})},
                     deadline_seconds=210
                 )
                 reply_scope = Scope.model_validate(result.get("scope"))
@@ -475,6 +483,121 @@ class Operations:
                     }
             return self.public(completed)
 
+    async def delete_project(
+        self, connection_id: str, project_id: str, confirm: bool = False,
+        preview_id: str | None = None,
+    ) -> dict[str, object]:
+        # Separate from generation: destructive, home-scoped, verified account required.
+        from uuid import UUID
+
+        UUID(project_id)
+        previous = None
+        if confirm:
+            if preview_id is None:
+                raise ValueError("preview_id_required")
+            previous = self.jobs.get(preview_id)
+            if (previous["connection_id"] != connection_id
+                    or previous["operation"] != "delete_project"
+                    or previous["input"].get("project_id") != project_id):
+                raise BridgeError("preview_scope_or_input_mismatch")
+            if previous["state"] != "preview":
+                return {**self.public(previous), "not_resubmitted": True}
+        session = self.manager.resolve(connection_id)
+        if not getattr(session.socket, "supports_project_deletion", False):
+            raise BridgeError("delete_project_unsupported_managed_browser_only")
+        async with session.lock:
+            if self.jobs.delete_in_flight(connection_id, project_id):
+                raise BridgeError("delete_project_outcome_unknown_do_not_retry")
+            if not confirm:
+                await self.manager.prepare_project(session, None)
+            selected = session.selected
+            if (selected is None or selected.origin != "https://flow.google.com"
+                    or selected.project_id is not None):
+                raise BridgeError("select_flow_home_tab_required")
+            scope = selected.model_copy()
+            epoch = session.generation
+            if previous is not None and previous["scope"] != scope.model_dump():
+                raise BridgeError("preview_scope_or_input_mismatch")
+            observation = await self.manager.observe(session, scope)
+            assert observation.email is not None
+            account = hashlib.sha256(observation.email.lower().encode()).hexdigest()
+            listing = await self.manager.request(
+                session, "list_projects", {"scope": scope.model_dump()}, deadline_seconds=45,
+            )
+            projects = listing.get("projects")
+            if (listing.get("state") != "completed" or listing.get("scope") != scope.model_dump()
+                    or not isinstance(projects, list)):
+                raise BridgeError("invalid_project_response")
+            matches = [item for item in projects if isinstance(item, dict)
+                       and item.get("project_id") == project_id]
+            if len(matches) != 1:
+                # GetProjects is capped at 100; absence is NOT proof of nonexistence.
+                raise BridgeError("delete_target_not_found_in_limited_list")
+            title = matches[0].get("title")
+            if not isinstance(title, str) or len(title) >= 200:
+                raise BridgeError("delete_title_truncated_or_invalid")
+            data = DeleteProjectInput.model_validate({
+                "project_id": project_id, "expected_title": title,
+                "account_sha256": account,
+            }).model_dump()
+            # Identity/scope checked again after listing, immediately before dispatch.
+            current = await self.manager.observe(session, scope)
+            assert current.email is not None
+            if (epoch != session.generation or session.selected != scope
+                    or hashlib.sha256(current.email.lower().encode()).hexdigest() != account):
+                raise BridgeError("scope_or_account_changed")
+            if not confirm:
+                identity = self.jobs.create_delete_preview(connection_id, scope, data)
+                return {
+                    **self.public(self.jobs.get(identity)), "confirmation_required": True,
+                    "may_consume_credits": False,
+                    "preview": {"rpc": "QI2zvc", "project_id": project_id,
+                                "title": data["expected_title"], "irreversible": True,
+                                "managed_only": True},
+                }
+            assert preview_id is not None
+            job = self.jobs.get(preview_id)
+            if job["input"] != data or job["scope"] != scope.model_dump():
+                raise BridgeError("preview_scope_account_or_title_mismatch")
+            if job["state"] != "preview":
+                return {**self.public(job), "not_resubmitted": True}
+            if not self.jobs.claim_delete(preview_id, connection_id, project_id):
+                return {**self.public(self.jobs.get(preview_id)), "not_resubmitted": True}
+            try:
+                raw = await self.manager.request(
+                    session, "delete_project", {"scope": scope.model_dump(), "input": data},
+                    deadline_seconds=210,
+                )
+                result = DeleteProjectReply.model_validate({
+                    key: raw[key] for key in DeleteProjectReply.model_fields if key in raw
+                })
+                if result.scope != scope or epoch != session.generation:
+                    raise BridgeError("scope_changed")
+                if result.state == "completed":
+                    if result.deleted_project_id != project_id or result.error is not None:
+                        raise ValueError("invalid_delete_response")
+                    stored: dict[str, object] = {
+                        "scope": scope.model_dump(), "state": "completed",
+                        "deleted_project_id": project_id,
+                    }
+                else:
+                    # No untrusted text (or account material) enters public job results.
+                    stored = {"error": "delete_not_submitted" if result.state == "not_submitted"
+                              else "submission_outcome_unknown_do_not_retry"}
+                self.jobs.update(preview_id, result.state, stored)
+                if result.state != "not_submitted":
+                    self.manager.invalidate(session)
+            except asyncio.CancelledError:
+                self.manager.invalidate(session)
+                self.jobs.update(preview_id, "submitted_unverified", {"error": "cancelled"})
+                raise
+            except Exception:
+                self.manager.invalidate(session)
+                self.jobs.update(preview_id, "submitted_unverified", {
+                    "error": "submission_outcome_unknown_do_not_retry",
+                })
+            return self.public(self.jobs.get(preview_id))
+
     def validate_assets(self, result: Outcome) -> None:
         for asset in result.assets:
             if asset.url is not None:
@@ -488,8 +611,13 @@ class Operations:
         refresh: bool,
     ) -> dict[str, object]:
         job = self.jobs.get(identity)
-        if job["connection_id"] != connection_id or job["scope"]["project_id"] != project_id:
+        if job["connection_id"] != connection_id or (
+            job["input"].get("project_id") if job["operation"] == "delete_project"
+            else job["scope"]["project_id"]
+        ) != project_id:
             raise BridgeError("job_scope_mismatch")
+        if job["operation"] == "delete_project":
+            return self.public(job)
         if not refresh or job["state"] in {"preview", "completed", "not_submitted"}:
             return self.public(job)
         session, scope = self.binding(connection_id, project_id)

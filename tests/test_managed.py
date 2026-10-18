@@ -183,6 +183,28 @@ async def test_credit_read_account_switch_is_rejected():
         await driver.dispatch("inspect", {"scope": scope.model_dump()})
 
 
+@pytest.mark.parametrize("operation,input_values", [
+    ("create_project", {"title": "Título managed"}),
+    ("generate_image", {"input": ImageInput(prompt="x", seed=42).model_dump()}),
+])
+async def test_managed_dispatch_forwards_optional_parameters_to_shared_runtime(
+    operation, input_values,
+):
+    _, driver, page = driver_at(None if operation == "create_project" else A)
+    scope = driver.scope()
+    evidence = {"email": "test@example.com", "observed_at": "2026-10-17T00:00:00.000Z"}
+    page.evaluate.side_effect = [
+        evidence, {"scope": scope.model_dump(), "state": "not_submitted"}, evidence,
+    ]
+    result = await driver.dispatch(operation, {"scope": scope.model_dump(), **input_values})
+    assert result["state"] == "not_submitted"
+    runtime_call = page.evaluate.await_args_list[1]
+    assert runtime_call.args[0] == driver.source
+    assert runtime_call.args[1] == [operation, {
+        "scope": scope.model_dump(), **input_values, "diagnostics": True,
+    }]
+
+
 async def test_credit_timeout_returns_unknown_not_previous_balance():
     _, driver, page = driver_at(A)
     scope = driver.scope()

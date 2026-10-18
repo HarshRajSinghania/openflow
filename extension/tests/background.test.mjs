@@ -106,14 +106,15 @@ test("project creation uses MAIN RPC and keeps the same document without navigat
       sends++;
       assert.equal(spec.world, "MAIN");
       assert.equal(spec.args[0], "create_project");
+      assert.equal(spec.args[1].title, "Título background");
       return [{frameId: 0, documentId: "old", result: {scope, state: "completed", selected: next}}];
     }}}});
   vm.runInContext(`let derived = null; let epoch = 0; let selected = scope; ${helper}`, context);
-  assert.equal((await vm.runInContext("createProject(scope, 0)", context)).state, "completed");
+  assert.equal((await vm.runInContext('createProject(scope, 0, false, "Título background")', context)).state, "completed");
   assert.equal(vm.runInContext("selected", context), next);
   assert.equal(vm.runInContext("derived.email", context), email);
   account = null;
-  assert.equal((await vm.runInContext("createProject(scope, 0)", context)).state, "not_submitted");
+  assert.equal((await vm.runInContext('createProject(scope, 0, false, "Título background")', context)).state, "not_submitted");
   assert.equal(sends, 1);
   assert.ok(!source.includes("clickNewProject"));
 });

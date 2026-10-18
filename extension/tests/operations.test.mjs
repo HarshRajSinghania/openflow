@@ -38,7 +38,7 @@ function harness(payload, options = {}) {
   });
   const run = vm.runInContext(`(${flowOperation.toString()})`, context);
   return {calls, context, run: async (op, input) => {
-    try { return JSON.parse(JSON.stringify(await run(op, {scope: options.scope || scope, input, diagnostics: options.diagnostics, ...(options.pageScope ? {page_scope: options.pageScope} : {})}))); }
+    try { return JSON.parse(JSON.stringify(await run(op, {scope: options.scope || scope, input, ...(Object.hasOwn(options, "title") ? {title: options.title} : {}), diagnostics: options.diagnostics, ...(options.pageScope ? {page_scope: options.pageScope} : {})}))); }
     finally { for (const timer of timers) clearTimeout(timer); }
   }};
 }
@@ -373,4 +373,55 @@ test("credits use verified read-only RPC without captcha and preserve zero", asy
     assert.equal(result.error, "invalid_credits_response");
     assert.equal(result.credits, undefined);
   }
+});
+
+
+test("optional image seed keeps legacy random fallback and exact explicit RPC slot", async () => {
+  for (const seed of [undefined, null, 1, 42, 1e9]) {
+    const h = harness([[`https://flow-content.google/image/${media}?Signature=test`]]);
+    vm.runInContext("Math.random = () => 0.25", h.context);
+    const input = {...image, ...(seed === undefined ? {} : {seed})};
+    assert.equal(validInput("generate_image", input), true);
+    assert.equal((await h.run("generate_image", input)).state, "completed");
+    const item = h.calls.find(call => call.rpc === "ogiZ0b").inner[1][0];
+    assert.equal(item[3], seed ?? 250000001);
+  }
+  for (const seed of [false, true, "42", 1.5, 0, -1, 1e9 + 1, undefined, {}, []]) {
+    const h = harness([]);
+    assert.equal(validInput("generate_image", {...image, seed}), false);
+    const result = await h.run("generate_image", {...image, seed});
+    assert.equal(result.error, "invalid_image_seed");
+    assert.equal(result.state, "not_submitted");
+    assert.equal(h.calls.length, 0, "invalid seed must not execute captcha or RPC");
+  }
+  assert.equal(validInput("generate_image", {...image, seed: 42, extra: true}), false);
+  assert.equal(validInput("generate_video", {...video, seed: 42}), false);
+});
+
+test("project title validates before RPC and retains literal text", async () => {
+  const home = {...scope, project_id: null};
+  const message = {type: "request", id: media, operation: "create_project"};
+  for (const title of [undefined, "x", "x".repeat(200), '  Projeto "teste" <script>  ']) {
+    const options = {scope: home, noCaptcha: true, ...(title === undefined ? {} : {title})};
+    const h = harness([project], options);
+    h.context.location.pathname = "/";
+    assert.equal(validRequest({...message, params: {scope: home, ...(title === undefined ? {} : {title})}}), true);
+    assert.equal((await h.run("create_project")).state, "completed");
+    assert.deepEqual(h.calls[0].inner, ["projects/*", [null, [title ?? "OpenFlow project"]], [null, 22]]);
+  }
+  for (const title of [null, true, 42, "", " \t\n", "x".repeat(201), [], {}]) {
+    const h = harness([], {scope: home, noCaptcha: true, title});
+    h.context.location.pathname = "/";
+    assert.equal(validRequest({...message, params: {scope: home, title}}), false);
+    const result = await h.run("create_project");
+    assert.equal(result.error, "invalid_project_title");
+    assert.equal(result.state, "not_submitted");
+    assert.equal(h.calls.length, 0);
+  }
+  for (const diagnostics of [undefined, false, true]) {
+    const params = {scope: home, title: "test", ...(diagnostics === undefined ? {} : {diagnostics})};
+    assert.equal(validRequest({...message, params}), true);
+    assert.equal(validRequest({...message, params: {...params, arbitrary: true}}), false);
+  }
+  assert.equal(validRequest({...message, params: {scope: home, title: undefined}}), false);
 });

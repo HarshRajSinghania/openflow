@@ -1,0 +1,181 @@
+import asyncio
+from uuid import uuid4
+
+import httpx
+import pytest
+from pydantic import ValidationError
+from test_manager import SECRET, pair, reply
+
+from flow_mcp.api import create_app
+from flow_mcp.jobs import Jobs
+from flow_mcp.manager import BridgeError, Manager
+from flow_mcp.models import Scope
+from flow_mcp.operations import CatalogInput, ProjectMediaCatalog
+from flow_mcp.server import create_server
+
+
+def setup():
+    manager = Manager(SECRET)
+    session, socket = pair(manager)
+    scope = Scope(
+        tab_id=7, origin="https://flow.google.com", project_id=str(uuid4()), document_id="doc"
+    )
+    session.selected = scope
+    return manager, session, socket, scope
+
+
+def result(scope, count=7):
+    return {
+        "scope": scope.model_dump(),
+        "state": "completed",
+        "items": [
+            {"media_id": str(uuid4()), "scene_id": str(uuid4()), "kind": "unknown"}
+            for _ in range(count)
+        ],
+        "source": "remote_project_scenes",
+        "completeness": "unknown",
+        "truncated": False,
+    }
+
+
+async def test_manager_prepares_verifies_under_lock_and_never_uses_jobs(monkeypatch):
+    manager, session, socket, scope = setup()
+    calls = []
+
+    async def prepare(project_id):
+        assert session.lock.locked()
+        calls.append(project_id)
+        session.selected = scope
+
+    async def verify(actual):
+        assert session.lock.locked() and actual == scope
+        calls.append("verify")
+
+    socket.prepare_project = prepare
+    socket.verify_scope = verify
+    session.selected = None
+    task = asyncio.create_task(manager.list_project_media(session.id, scope.project_id))
+    request = await socket.sent.get()
+    assert request["operation"] == "list_project_media"
+    assert request["params"] == {"scope": scope.model_dump(), "input": {"limit": 100}}
+    reply(manager, session, request, result(scope))
+    catalog = await task
+    assert len(catalog["items"]) == 7
+    assert calls == [scope.project_id, "verify", "verify"]
+    assert socket.sent.empty()
+
+
+@pytest.mark.parametrize(
+    "change", ["scope", "extra", "state", "kind", "source", "oversized", "duplicate", "limit"]
+)
+async def test_manager_rejects_invalid_response(change):
+    manager, session, socket, scope = setup()
+    task = asyncio.create_task(manager.list_project_media(session.id, scope.project_id, 7))
+    request = await socket.sent.get()
+    raw = result(scope)
+    if change == "scope":
+        raw["scope"]["document_id"] = "foreign"
+    elif change == "extra":
+        raw["url"] = "https://private.invalid"
+    elif change == "state":
+        raw["state"] = "submitted_unverified"
+    elif change == "kind":
+        raw["items"][0]["kind"] = "image"
+    elif change == "source":
+        raw["source"] = "other"
+    elif change == "oversized":
+        raw = result(scope, 101)
+    elif change == "duplicate":
+        raw["items"].append(raw["items"][0])
+    else:
+        raw = result(scope, 8)
+    reply(manager, session, request, raw)
+    with pytest.raises(BridgeError, match="scope_changed|invalid_catalog_response"):
+        await task
+
+
+async def test_manager_rejects_invalidation_during_read():
+    manager, session, socket, scope = setup()
+    task = asyncio.create_task(manager.list_project_media(session.id, scope.project_id))
+    request = await socket.sent.get()
+    manager.invalidate(session)
+    reply(manager, session, request, result(scope))
+    with pytest.raises(BridgeError, match="scope_changed"):
+        await task
+
+
+async def test_extension_requires_selected_matching_project():
+    manager, session, socket, scope = setup()
+    for selected in [None, scope.model_copy(update={"project_id": None})]:
+        session.selected = selected
+        with pytest.raises(BridgeError, match="project_scope_mismatch"):
+            await manager.list_project_media(session.id, scope.project_id)
+    assert socket.sent.empty()
+
+
+@pytest.mark.parametrize("limit", [0, 101, True, "1", 1.5])
+async def test_limits_fail_before_transport(limit):
+    manager, session, socket, scope = setup()
+    with pytest.raises(ValidationError):
+        await manager.list_project_media(session.id, scope.project_id, limit)
+    assert socket.sent.empty()
+
+
+async def test_rest_catalog_and_mcp_contract(monkeypatch):
+    manager, session, _, scope = setup()
+    calls = []
+
+    async def catalog(connection_id, project_id, limit=100):
+        calls.append((connection_id, project_id, limit))
+        return result(scope, 0)
+
+    monkeypatch.setattr(manager, "list_project_media", catalog)
+    app = create_app(manager, 19333, Jobs(":memory:"))
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        path = f"/projects/{scope.project_id}/media"
+        response = await client.get(path, params={"connection_id": session.id, "limit": 2})
+        assert response.status_code == 200
+        assert response.json()["completeness"] == "unknown"
+        assert calls == [(session.id, scope.project_id, 2)]
+        for limit in [0, 101, "bad"]:
+            assert (
+                await client.get(path, params={"connection_id": session.id, "limit": limit})
+            ).status_code == 422
+        assert (
+            await client.get("/projects/bad/media", params={"connection_id": session.id})
+        ).status_code == 422
+    server = create_server(manager, 19333, Jobs(":memory:"))
+    tools = {tool.name: tool for tool in await server.list_tools()}
+    tool = tools["list_project_media"]
+    assert tool.annotations.readOnlyHint
+    assert tool.inputSchema["properties"]["limit"]["maximum"] == 100
+    await server.call_tool(
+        "list_project_media",
+        {"connection_id": session.id, "project_id": scope.project_id, "limit": 2},
+    )
+    assert len(calls) == 2
+
+
+def test_strict_catalog_rejects_private_fields_and_coercions():
+    _, _, _, scope = setup()
+    raw = result(scope, 0)
+    assert ProjectMediaCatalog.model_validate(raw).items == []
+    for field, value in [("truncated", 1), ("completeness", "complete")]:
+        with pytest.raises(ValidationError):
+            ProjectMediaCatalog.model_validate({**raw, field: value})
+    assert CatalogInput(limit=100).limit == 100
+
+
+async def test_manager_accepts_upsampled_media_not_scene_ids():
+    manager, session, socket, scope = setup()
+    task = asyncio.create_task(manager.list_project_media(session.id, scope.project_id))
+    request = await socket.sent.get()
+    raw = result(scope, 1)
+    raw["items"][0]["media_id"] += "_upsampled"
+    reply(manager, session, request, raw)
+    assert (await task)["items"][0]["media_id"].endswith("_upsampled")
+    raw["items"][0]["scene_id"] += "_upsampled"
+    with pytest.raises(ValidationError):
+        ProjectMediaCatalog.model_validate(raw)

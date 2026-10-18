@@ -31,6 +31,11 @@ export function flowScope(value) {
 
 const exact = (value, keys) => value && typeof value === "object" && !Array.isArray(value) &&
   Object.keys(value).every(key => keys.includes(key)) && keys.every(key => Object.hasOwn(value, key));
+const optionalExact = (value, required, optional) => value && typeof value === "object" && !Array.isArray(value) &&
+  Object.keys(value).every(key => required.includes(key) || optional.includes(key)) &&
+  required.every(key => Object.hasOwn(value, key));
+const title = value => typeof value === "string" && value.length >= 1 && value.length <= 200 && value.trim().length > 0;
+const seed = value => value === null || (Number.isInteger(value) && value >= 1 && value <= 1e9);
 const identifier = value => typeof value === "string" && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(value);
 const nullableId = value => value === null || identifier(value);
 const mediaIdentifier = value => typeof value === "string" && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}(?:_upsampled)?$/i.test(value);
@@ -47,7 +52,8 @@ export function validScope(value) {
 }
 
 export function validInput(operation, p) {
-  if (operation === "generate_image") return exact(p, ["prompt", "model", "ratio", "references"]) &&
+  if (operation === "generate_image") return optionalExact(p, ["prompt", "model", "ratio", "references"], ["seed"]) &&
+    (!Object.hasOwn(p, "seed") || seed(p.seed)) &&
     prompt(p.prompt) && ["nano_banana_pro", "nano_banana_2", "nano_banana_lite"].includes(p.model) &&
     ["1:1", "9:16", "16:9", "3:4", "4:3"].includes(p.ratio) && refs(p.references, 4);
   if (operation === "generate_video") return exact(p, ["prompt", "model", "ratio", "duration", "resolution", "start", "end", "references"]) &&
@@ -77,6 +83,9 @@ export function validRequest(message) {
   if (["snapshot", "capabilities"].includes(message.operation)) return exact(p, []);
   if (message.operation === "reload_extension") return exact(p, ["marker"]) && p.marker === "openflow-dev-reload";
   if (message.operation === "reload_tab") return exact(p, ["scope"]) && validScope(p.scope);
+  if (message.operation === "list_project_media") return exact(p, ["scope", "input"]) &&
+    validScope(p.scope) && p.scope.origin === "https://flow.google.com" && identifier(p.scope.project_id) &&
+    exact(p.input, ["limit"]) && Number.isSafeInteger(p.input.limit) && p.input.limit >= 1 && p.input.limit <= 100;
   if (message.operation === "probe") return exact(p, ["scope", "input", "diagnostics"]) &&
     validScope(p.scope) && p.scope.origin === "https://flow.google.com" && p.diagnostics === true &&
     exact(p.input, ["project_id"]) && identifier(p.input.project_id);
@@ -84,8 +93,9 @@ export function validRequest(message) {
     p.scope.origin === "https://flow.google.com" && p.scope.project_id === null;
   if (message.operation === "select") return exact(p, ["tab_id"]) && Number.isSafeInteger(p.tab_id) && p.tab_id >= 0;
   if (["inspect", "refresh_account", "captcha_probe"].includes(message.operation)) return exact(p, ["scope"]) && validScope(p.scope);
-  if (message.operation === "create_project") return (exact(p, ["scope"]) ||
-    (exact(p, ["scope", "diagnostics"]) && typeof p.diagnostics === "boolean")) && validScope(p.scope) &&
+  if (message.operation === "create_project") return optionalExact(p, ["scope"], ["title", "diagnostics"]) &&
+    (!Object.hasOwn(p, "title") || title(p.title)) &&
+    (!Object.hasOwn(p, "diagnostics") || typeof p.diagnostics === "boolean") && validScope(p.scope) &&
     p.scope.origin === "https://flow.google.com" && p.scope.project_id === null;
   return (exact(p, ["scope", "input"]) ||
     (exact(p, ["scope", "input", "diagnostics"]) && typeof p.diagnostics === "boolean")) &&

@@ -34,10 +34,12 @@ export async function flowOperation(operation, params, operationErrors) {
   let sent = false;
   let phase = "preflight";
   const diagnostics = {};
+  const initialPath = location.pathname;
   const shape = (value, depth = 0) => value === null ? "null" : Array.isArray(value) ?
     {type: "array", length: value.length, items: depth < 2 ? value.slice(0, 8).map(item => shape(item, depth + 1)) : []} : typeof value;
   const finish = result => params.diagnostics === true ? {...result, diagnostics} : result;
   const check = () => {
+    if (operation === "delete_project" && location.pathname !== initialPath) throw new Error("scope_changed");
     const pageScope = params.page_scope || scope;
     const project = location.pathname.match(/\/project\/([a-f0-9-]{36})(?:\/|$)/i)?.[1] ?? null;
     const pageProject = pageScope.project_id ?? null;
@@ -113,7 +115,7 @@ export async function flowOperation(operation, params, operationErrors) {
     throw new Error(envelopes ? "rpc_envelope_missing" : "invalid_batch_response");
   };
   const rpc = async (name, inner) => {
-    const allowed = {get_credits: ["nzlxg"], list_projects: ["UpteDb"], probe: ["Zzl0ze"], create_project: ["jHPbke"], poll: ["jwpduf", "Zzl0ze", "as29s"],
+    const allowed = {get_credits: ["nzlxg"], list_projects: ["UpteDb"], list_project_media: ["Zzl0ze"], probe: ["Zzl0ze"], create_project: ["jHPbke"], delete_project: ["UpteDb", "QI2zvc"], poll: ["jwpduf", "Zzl0ze", "as29s"],
       upscale_image: ["SPrCad"], upscale_video: ["p0UkFb"],
       upload: ["maseQ"], generate_image: ["ogiZ0b"], generate_video: ["MZZa6b", "nprQif", "eb1hJf", "YhhmEf"]};
     if (!allowed[operation]?.includes(name)) throw new Error("invalid_rpc");
@@ -129,7 +131,7 @@ export async function flowOperation(operation, params, operationErrors) {
     if (operation === "list_projects") diagnostics.endpoint_path = endpoint.pathname.replace(/[^a-zA-Z0-9_/-]/g, "").slice(0, 200);
     if (endpoint.origin !== location.origin || !/^\/(?:u\/\d+\/)?_\/AiSandboxAngularFrontend\/data\/batchexecute$/.test(endpoint.pathname) || endpoint.search || endpoint.hash) throw new Error("invalid_rpc");
     phase = "transport";
-    sent = true;
+    if (operation !== "delete_project" || name === "QI2zvc") sent = true;
     const response = await fetch(endpoint.pathname + "?" + query, {
       method: "POST", credentials: "include", redirect: "error", signal: AbortSignal.timeout(operation === "get_credits" ? 10000 : 180000),
       headers: {"content-type": "application/x-www-form-urlencoded;charset=UTF-8", "x-same-domain": "1"}, body
@@ -171,6 +173,78 @@ export async function flowOperation(operation, params, operationErrors) {
       });
       return finish({scope, state: "completed", projects, has_more: !!payload[1], source: "FlowService.GetProjects:UpteDb"});
     }
+    if (operation === "list_project_media") {
+      const limit = params.input?.limit;
+      if (!validId(scope.project_id) || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new Error("invalid_catalog_input");
+      const payload = await rpc("Zzl0ze", [`projects/${scope.project_id}`, null, null, null, [1]]);
+      // Only captured root/row paths count. Never recursively discover IDs or URLs.
+      if (!Array.isArray(payload) || payload.length !== 8 || !Array.isArray(payload[1]) || !Array.isArray(payload[2]) || payload[1].length > 1000 || payload[2].length > 1000) throw new Error("invalid_catalog_response");
+      const sameProject = value => validId(value) && value.toLowerCase() === scope.project_id.toLowerCase();
+      const media = new Set();
+      for (const row of payload[2]) {
+        if (!Array.isArray(row) || ![7, 8].includes(row.length) || !validMedia(row[0]) || !sameProject(row[1]) || media.has(row[0].toLowerCase())) throw new Error("invalid_catalog_response");
+        media.add(row[0].toLowerCase());
+      }
+      const scenes = new Set();
+      const items = [];
+      // Validate every row before applying limit, including foreign scenes beyond limit.
+      for (const row of payload[1]) {
+        if (!Array.isArray(row) || row.length !== 5 || !validId(row[0]) || !sameProject(row[4]) || !Array.isArray(row[3]) || row[3].length !== 7 || !validMedia(row[3][4]) || scenes.has(row[0].toLowerCase()) || !media.has(row[3][4].toLowerCase())) throw new Error("invalid_catalog_response");
+        scenes.add(row[0].toLowerCase());
+        // CAE/CAI/null have no proven media-kind meaning. Titles omitted, not prompts.
+        items.push({media_id: row[3][4], scene_id: row[0], kind: "unknown"});
+      }
+      return {scope, state: "completed", items: items.slice(0, limit),
+        source: "remote_project_scenes", completeness: "unknown", truncated: items.length > limit};
+    }
+    if (operation === "delete_project") {
+      const p = params.input;
+      if (scope.project_id !== null || params.page_scope ||
+          !/^\/(?:u\/\d+\/?)?$/.test(location.pathname) ||
+          !p || Object.keys(p).sort().join(",") !== "account_sha256,expected_title,project_id" ||
+          !validId(p.project_id) || typeof p.expected_title !== "string" ||
+          !p.expected_title.length || p.expected_title.length > 10000 ||
+          typeof p.account_sha256 !== "string" || !/^[a-f0-9]{64}$/.test(p.account_sha256)) {
+        throw new Error("invalid_delete_input");
+      }
+      // Identity must remain visible and unambiguous; never open account panels.
+      const verifyAccount = async () => {
+        const emails = new Set(); let ambiguous = false;
+        for (const node of document.querySelectorAll(
+            'button[aria-label],a[aria-label],[role="button"][aria-label]')) {
+          const label = node.getAttribute("aria-label") || "";
+          if (!node.getClientRects().length || !/^(?:Google Account|Conta do Google):\s/i.test(label)) continue;
+          let visible = true;
+          for (let n = node; n; n = n.parentElement) {
+            const style = getComputedStyle(n);
+            if (n.hidden || n.getAttribute("aria-hidden") === "true" || style.display === "none" ||
+                ["hidden", "collapse"].includes(style.visibility) || style.opacity === "0") visible = false;
+          }
+          if (!visible) continue;
+          const found = label.match(/[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || [];
+          if (found.length !== 1) ambiguous = true;
+          else emails.add(found[0].toLowerCase());
+        }
+        if (ambiguous || emails.size !== 1) throw new Error("invalid_account_evidence");
+        const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode([...emails][0]));
+        const hash = [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, "0")).join("");
+        if (hash !== p.account_sha256) throw new Error("invalid_account_binding");
+        check();
+      };
+      await verifyAccount();
+      const listing = await rpc("UpteDb", ["projects/*", 100]);
+      if (!Array.isArray(listing) || !Array.isArray(listing[0]) || listing[0].length > 100) {
+        throw new Error("invalid_project_response");
+      }
+      const matches = listing[0].filter(record => record?.[0] === p.project_id);
+      if (matches.length !== 1 || matches[0]?.[1]?.[0] !== p.expected_title) {
+        throw new Error("invalid_delete_target_or_title");
+      }
+      await verifyAccount();
+      const result = await rpc("QI2zvc", [`projects/${p.project_id}`]);
+      if (!Array.isArray(result) || result.length !== 0) throw new Error("invalid_delete_response");
+      return finish({scope, state: "completed", deleted_project_id: p.project_id});
+    }
     if (operation === "probe") {
       diagnostics.auth_present = typeof globalThis.WIZ_global_data?.SNlM0e === "string" && !!globalThis.WIZ_global_data.SNlM0e;
     diagnostics.native_restriction =
@@ -186,11 +260,15 @@ export async function flowOperation(operation, params, operationErrors) {
     if (!["create_project", "poll", "upload", "generate_image", "generate_video", "upscale_image", "upscale_video"].includes(operation)) throw new Error("invalid_operation");
     if (operation === "create_project") {
       if (scope.project_id !== null) throw new Error("invalid_project_scope");
-      const result = await rpc("jHPbke", ["projects/*", [null, ["OpenFlow project"]], [null, 22]]);
+      const title = Object.hasOwn(params, "title") ? params.title : "OpenFlow project";
+      if (typeof title !== "string" || title.length < 1 || title.length > 200 || !title.trim()) throw new Error("invalid_project_title");
+      const result = await rpc("jHPbke", ["projects/*", [null, [title]], [null, 22]]);
       if (!validId(result?.[0])) throw new Error("invalid_project_response");
       return finish({scope, state: "completed", selected: {...scope, project_id: result[0]}});
     }
     const p = params.input;
+    if (operation === "generate_image" && Object.hasOwn(p, "seed") && p.seed !== null &&
+        (!Number.isInteger(p.seed) || p.seed < 1 || p.seed > 1e9)) throw new Error("invalid_image_seed");
     if (operation === "poll") {
       let media = p.media_id;
       if (!media && p.operation_id) {
@@ -301,7 +379,7 @@ export async function flowOperation(operation, params, operationErrors) {
       const model = {nano_banana_pro: "GEM_PIX_2", nano_banana_2: "BELUGA", nano_banana_lite: "HARBOR_SEAL"}[p.model];
       const ratio = {"1:1": 1, "9:16": 2, "16:9": 3, "3:4": 4, "4:3": 5}[p.ratio];
       const refs = p.references.map(id => [id, null, null, null, 1]);
-      const item = [null, null, refs.length ? refs : null, Math.floor(Math.random() * 1e9) + 1, ratio, model, null, context(), [[[p.prompt]]], null, null, null, uuid(), uuid()];
+      const item = [null, null, refs.length ? refs : null, p.seed ?? (Math.floor(Math.random() * 1e9) + 1), ratio, model, null, context(), [[[p.prompt]]], null, null, null, uuid(), uuid()];
       const result = await rpc("ogiZ0b", [null, [item], 1, context(), [uuid()]]);
       const assets = urls(result, "image");
       if (!assets.length) throw new Error("image_result_unrecognized");
@@ -350,6 +428,6 @@ export async function flowOperation(operation, params, operationErrors) {
   } catch (error) {
     const fallback = phase === "transport" ? (error?.name === "TimeoutError" ? "rpc_timeout" : "rpc_transport_error") : phase === "body" ? "rpc_body_read_error" : "page_operation_failed";
     diagnostics.phase = phase;
-    return finish({scope, state: sent ? "submitted_unverified" : "not_submitted", ...(operation === "probe" ? {rpc_verified: false} : {}), error: isKnownError.test(error?.message) ? error.message : fallback});
+    return finish({scope, state: sent && operation !== "list_project_media" ? "submitted_unverified" : "not_submitted", ...(operation === "probe" ? {rpc_verified: false} : {}), error: isKnownError.test(error?.message) ? error.message : fallback});
   }
 }

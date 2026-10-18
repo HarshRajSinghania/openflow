@@ -74,6 +74,8 @@ def init_script_source() -> str:
 
 
 class ManagedBrowser:
+    supports_project_deletion = True
+
     def __init__(self, manager: Manager, page: Page) -> None:
         self.manager = manager
         self.page = page
@@ -239,7 +241,9 @@ class ManagedBrowser:
             return observation.model_dump()
         allowed = {
             "list_projects",
+            "list_project_media",
             "create_project",
+            "delete_project",
             "probe",
             "poll",
             "upload",
@@ -250,8 +254,18 @@ class ManagedBrowser:
         }
         if operation not in allowed:
             raise BridgeError("invalid_request")
-        if operation not in {"list_projects", "create_project"} and requested.project_id is None:
+        if (operation not in {"list_projects", "create_project", "delete_project"}
+                and requested.project_id is None):
             raise BridgeError("project_scope_mismatch")
+        if operation == "delete_project":
+            from flow_mcp.operations import DeleteProjectInput
+
+            if requested.project_id is not None or params.get("page_scope") is not None:
+                raise BridgeError("invalid_request")
+            try:
+                DeleteProjectInput.model_validate(params.get("input"))
+            except ValueError:
+                raise BridgeError("invalid_request") from None
         result: Any = await self.page.evaluate(
             self.source, [operation, {**params, "diagnostics": True}]
         )

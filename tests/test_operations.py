@@ -940,3 +940,66 @@ async def test_inline_upscale_download_contains_real_png_dimensions(tmp_path):
     assert result['requested_resolution'] == '2K'
     # Requested resolution must not be confused with observed output dimensions.
     assert not result['quality_verified']
+
+
+@pytest.mark.parametrize("seed", [None, 1, 42, 1_000_000_000])
+def test_image_seed_accepts_local_range(seed):
+    assert ImageInput(prompt="x", seed=seed).seed == seed
+    assert ImageInput(prompt="x").seed is None
+
+@pytest.mark.parametrize("seed", [True, False, "42", 1.0, 1.5, 0, -1, 1_000_000_001, [], {}])
+def test_image_seed_rejects_coercion_and_out_of_range(seed):
+    with pytest.raises(ValidationError):
+        ImageInput(prompt="x", seed=seed)
+
+@pytest.mark.parametrize("seed", [None, 1, 1_000_000_000])
+async def test_seed_preview_confirmation_and_dispatch(tmp_path, seed):
+    manager, session, socket, scope, jobs, ops = setup(tmp_path)
+    value = ImageInput(prompt="x", seed=seed)
+    preview = await ops.submit("generate_image", session.id, scope.project_id, value, False, None)
+    assert preview["preview"]["seed"] == seed
+    changed = ImageInput(prompt="x", seed=2)
+    with pytest.raises(BridgeError, match="preview_scope_or_input_mismatch"):
+        await ops.submit(
+            "generate_image", session.id, scope.project_id, changed, True, preview["job_id"]
+        )
+    assert socket.sent.empty()
+    task = asyncio.create_task(ops.submit(
+        "generate_image", session.id, scope.project_id, value, True, preview["job_id"]
+    ))
+    request = await socket.sent.get()
+    assert request["params"]["input"]["seed"] == seed
+    reply(manager, session, request, {"scope": scope.model_dump(), "state": "not_submitted"})
+    assert (await task)["state"] == "not_submitted"
+
+@pytest.mark.parametrize("title", ["", " \t\n", "x" * 201, None, True, 42, []])
+async def test_project_title_validates_before_browser_or_job(tmp_path, title):
+    _, session, socket, scope, _, ops = setup(tmp_path)
+    session.selected = scope.model_copy(update={"project_id": None})
+    with pytest.raises(ValidationError):
+        await ops.create_project(session.id, False, None, title=title)
+    assert socket.sent.empty()
+
+@pytest.mark.parametrize("title", ["x", "x" * 200, '  Projeto "teste" <script>  '])
+async def test_project_title_bound_to_preview_dispatch_and_replay(tmp_path, title):
+    manager, session, socket, scope, jobs, ops = setup(tmp_path)
+    home = scope.model_copy(update={"project_id": None})
+    session.selected = home
+    preview = await ops.create_project(session.id, False, None, title=title)
+    assert preview["preview"]["title"] == title
+    assert jobs.get(preview["job_id"])["input"]["title"] == title
+    with pytest.raises(BridgeError, match="preview_scope_or_input_mismatch"):
+        await ops.create_project(session.id, True, preview["job_id"], title="changed")
+    assert socket.sent.empty()
+    task = asyncio.create_task(ops.create_project(session.id, True, preview["job_id"], title=title))
+    request = await socket.sent.get()
+    assert request["params"]["title"] == title
+    reply(manager, session, request, {
+        "state": "completed", "scope": home.model_dump(), "selected": scope.model_dump(),
+    })
+    assert (await task)["state"] == "completed"
+    replay = await ops.create_project(session.id, True, preview["job_id"], title=title)
+    assert replay["not_resubmitted"]
+    with pytest.raises(BridgeError, match="preview_scope_or_input_mismatch"):
+        await ops.create_project(session.id, True, preview["job_id"], title="changed")
+    assert socket.sent.empty()
