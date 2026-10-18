@@ -190,6 +190,8 @@ uv run --extra browser openflow-api --host 127.0.0.1 --api-port 8100
 
 [Swagger UI](http://127.0.0.1:8100/docs) · [ReDoc](http://127.0.0.1:8100/redoc) · [OpenAPI](http://127.0.0.1:8100/openapi.json) — disponíveis enquanto a API local estiver executando.
 
+A documentação reflete o backend escolhido. No modo padrão `browser`, não há etapa de pareamento: use o login salvo pelo `openflow setup`. Os endpoints legados de pareamento e seleção de aba aparecem na documentação somente com `--backend extension`; as rotas continuam registradas por compatibilidade.
+
 ### Exemplo: gerar e baixar uma imagem
 
 Os comandos abaixo usam Bash, `curl` e `jq`. Execute em sequência no mesmo terminal. O exemplo não escolhe um projeto nem confirma uma geração automaticamente.
