@@ -383,6 +383,8 @@ Salve downloads, mídias geradas e outras saídas locais de teste em `artifacts/
 
 ## Contribuição
 
+Leia o [guia de contribuição](CONTRIBUTING.md) para preparar o ambiente, executar testes sem conta Google e enviar seu primeiro PR. Veja também as [issues para começar](https://github.com/codexfast/openflow/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22).
+
 Contribuições de código, testes e documentação são bem-vindas. Mantenha as mudanças focadas, descreva passos de reprodução e execute as verificações pertinentes. Ao relatar problemas, inclua versões do Python, Playwright/Chromium e erros sanitizados; não envie dados de conta ou mídia privada.
 
 ## Contribuidores
