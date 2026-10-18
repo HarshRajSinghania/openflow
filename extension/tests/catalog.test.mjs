@@ -41,7 +41,7 @@ test("catalog uses one scoped RPC; mixed markers remain unknown and private fiel
   assert.equal(result.source, "remote_project_scenes");
   assert.equal(result.completeness, "unknown");
   assert.equal(result.truncated, false);
-  for (const item of result.items) assert.deepEqual(Object.keys(item).sort(), ["kind", "media_id", "scene_id"]);
+  for (const item of result.items) assert.deepEqual(Object.keys(item).sort(), ["kind", "media_id", "scene_id", "thumbnail_url"]);
   assert.ok(result.items.every(item => item.kind === "unknown"));
   assert.ok(!JSON.stringify(result).includes("private"));
   assert.equal(result.diagnostics, undefined);
@@ -118,3 +118,41 @@ test("upsampled media links accepted; suffix never applies to scenes or projects
     assert.equal(failure.items, undefined);
   }
 });
+
+
+test("catalog classifies observed detail slots independently of markers and JPEG thumbs", async () => {
+  const data = fixture(4);
+  const thumb = "https://lh3.googleusercontent.com/synthetic-thumb.jpg=w320";
+  for (const row of data[2]) row[5] = [null, null, null, null, null, thumb];
+  data[2][0][6] = [[], null, [1376, 768], null, null, []];
+  data[2][1][6] = null;
+  data[2][1][7] = [[], null, [], null, null, []];
+  data[2][2][6] = [[], null, null, null, null, []];
+  data[2][2][7] = [[], null, null, null, null, []];
+  data[2][3][6] = [];
+  const {result, calls} = await run(data);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(result.items.map(item => item.kind), ["image", "video", "unknown", "unknown"]);
+  assert.ok(result.items.every(item => item.thumbnail_url === thumb));
+});
+
+for (const thumb of [
+  "http://lh3.googleusercontent.com/thumb",
+  "https://lh3.googleusercontent.com.evil.invalid/thumb",
+  "https://user@lh3.googleusercontent.com/thumb",
+  "https://lh3.googleusercontent.com:443/thumb",
+  "https://lh3.googleusercontent.com/thumb#fragment",
+  "https://lh3.googleusercontent.com/",
+  "https://lh3.googleusercontent.com/thumb\n",
+  "https://lh3.googleusercontent.com/thumb with space",
+  "https://lh3.googleusercontent.com/" + "x".repeat(8192),
+  null,
+]) {
+  test(`catalog omits unsafe or absent thumbnail ${String(thumb).slice(0, 64)}`, async () => {
+    const data = fixture(1);
+    data[2][0][5] = [null, null, null, null, null, thumb];
+    const {result} = await run(data);
+    assert.equal(result.state, "completed");
+    assert.equal(result.items[0].thumbnail_url, null);
+  });
+}

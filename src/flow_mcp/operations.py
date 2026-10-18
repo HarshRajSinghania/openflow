@@ -1,4 +1,6 @@
+import re
 from typing import Annotated, Literal
+from urllib.parse import urlsplit
 
 from pydantic import AfterValidator, Field, model_validator
 
@@ -154,10 +156,35 @@ CatalogLimit = Annotated[int, Field(strict=True, ge=1, le=100)]
 class CatalogInput(StrictModel):
     limit: CatalogLimit = 100
 
+def catalog_thumbnail(value: str) -> str:
+    if len(value) > 8192 or re.search(r"[\x00-\x20\x7f]", value):
+        raise ValueError("invalid_catalog_thumbnail")
+    try:
+        url = urlsplit(value)
+    except ValueError:
+        raise ValueError("invalid_catalog_thumbnail") from None
+    if (
+        url.scheme != "https"
+        or url.netloc != "lh3.googleusercontent.com"
+        or not url.path.startswith("/")
+        or url.path == "/"
+        or "#" in value
+        or "\\" in value
+    ):
+        raise ValueError("invalid_catalog_thumbnail")
+    return value
+
+
+CatalogThumbnail = Annotated[
+    str, Field(strict=True, max_length=8192), AfterValidator(catalog_thumbnail)
+]
+
+
 class CatalogItem(StrictModel):
     media_id: MediaIdentifier
     scene_id: Identifier
-    kind: Literal["unknown"] = "unknown"
+    kind: Literal["image", "video", "unknown"] = "unknown"
+    thumbnail_url: CatalogThumbnail | None = None
 
 class ProjectMediaCatalog(StrictModel):
     scope: Scope

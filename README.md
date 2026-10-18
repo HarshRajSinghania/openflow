@@ -185,11 +185,20 @@ as mídias referenciadas por cenas do projeto, sem geração nem criação de jo
 O backend gerenciado prepara o projeto sob lock; a extensão exige a aba do projeto
 já selecionada. Ambos revalidam escopo/documento.
 
-A resposta contém `items` com `media_id`, `scene_id`, `kind: "unknown"`,
-`source: "remote_project_scenes"`, `completeness: "unknown"` e `truncated`.
+A resposta contém `items` com `media_id`, `scene_id`, `kind` (`image`, `video` ou
+`unknown`) e `thumbnail_url` opcional, além de `source: "remote_project_scenes"`,
+`completeness: "unknown"` e `truncated`. O tipo usa as estruturas de mídia
+identificadas no retorno do projeto, não os marcadores `CAE`/`CAI` nem o formato da
+miniatura. Estruturas ausentes ou contraditórias mantêm `unknown`.
+
+Miniaturas são URLs HTTPS verificadas do host observado `lh3.googleusercontent.com`;
+URLs ausentes ou inválidas resultam em `null`. Podem expirar ou exigir autenticação:
+não publique nem registre esses links em logs. O catálogo não baixa miniaturas nem
+faz uma chamada adicional por item. Não retorna a URL do arquivo original.
+
 Não representa todas as mídias ou uploads do projeto; uma mídia pode aparecer em
-mais de uma cena. Títulos, prompts, URLs assinadas e campos privados não são expostos.
-A listagem não concede ownership para referências, downloads ou upscale.
+mais de uma cena. Títulos, prompts e outros campos privados não são expostos.
+A listagem e as miniaturas não concedem ownership para referências, downloads ou upscale.
 
 `limit` aceita 1 a 100. `truncated` indica somente corte local da resposta retornada,
 não completude remota. Não há cursor, snapshot persistido ou paginação automática;

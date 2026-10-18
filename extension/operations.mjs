@@ -180,10 +180,25 @@ export async function flowOperation(operation, params, operationErrors) {
       // Only captured root/row paths count. Never recursively discover IDs or URLs.
       if (!Array.isArray(payload) || payload.length !== 8 || !Array.isArray(payload[1]) || !Array.isArray(payload[2]) || payload[1].length > 1000 || payload[2].length > 1000) throw new Error("invalid_catalog_response");
       const sameProject = value => validId(value) && value.toLowerCase() === scope.project_id.toLowerCase();
-      const media = new Set();
+      const thumbnail = value => {
+        if (typeof value !== "string" || value.length > 8192 || /[\x00-\x20\x7f\\\\#]/.test(value) || !value.startsWith("https://lh3.googleusercontent.com/")) return null;
+        try {
+          const url = new URL(value);
+          if (url.origin !== "https://lh3.googleusercontent.com" || url.username || url.password || url.port || url.pathname === "/") return null;
+          return value;
+        } catch { return null; }
+      };
+      const media = new Map();
       for (const row of payload[2]) {
         if (!Array.isArray(row) || ![7, 8].includes(row.length) || !validMedia(row[0]) || !sameProject(row[1]) || media.has(row[0].toLowerCase())) throw new Error("invalid_catalog_response");
-        media.add(row[0].toLowerCase());
+        // Observed image/video detail slots, not CAE/CAI or thumbnail file format.
+        const detail = value => Array.isArray(value) && value.length === 6 && Array.isArray(value[0]);
+        const image = detail(row[6]) && row[7] == null;
+        const video = row[6] == null && detail(row[7]);
+        media.set(row[0].toLowerCase(), {
+          kind: image ? "image" : video ? "video" : "unknown",
+          thumbnail_url: thumbnail(Array.isArray(row[5]) ? row[5][5] : null)
+        });
       }
       const scenes = new Set();
       const items = [];
@@ -191,8 +206,8 @@ export async function flowOperation(operation, params, operationErrors) {
       for (const row of payload[1]) {
         if (!Array.isArray(row) || row.length !== 5 || !validId(row[0]) || !sameProject(row[4]) || !Array.isArray(row[3]) || row[3].length !== 7 || !validMedia(row[3][4]) || scenes.has(row[0].toLowerCase()) || !media.has(row[3][4].toLowerCase())) throw new Error("invalid_catalog_response");
         scenes.add(row[0].toLowerCase());
-        // CAE/CAI/null have no proven media-kind meaning. Titles omitted, not prompts.
-        items.push({media_id: row[3][4], scene_id: row[0], kind: "unknown"});
+        // Metadata comes only from the validated, project-bound media record.
+        items.push({media_id: row[3][4], scene_id: row[0], ...media.get(row[3][4].toLowerCase())});
       }
       return {scope, state: "completed", items: items.slice(0, limit),
         source: "remote_project_scenes", completeness: "unknown", truncated: items.length > limit};

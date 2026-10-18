@@ -10,8 +10,39 @@ from flow_mcp.api import create_app
 from flow_mcp.jobs import Jobs
 from flow_mcp.manager import BridgeError, Manager
 from flow_mcp.models import Scope
-from flow_mcp.operations import CatalogInput, ProjectMediaCatalog
+from flow_mcp.operations import CatalogInput, CatalogItem, ProjectMediaCatalog
 from flow_mcp.server import create_server
+
+
+@pytest.mark.parametrize("kind", ["image", "video", "unknown"])
+def test_catalog_metadata_and_legacy_defaults(kind):
+    value = {"media_id": str(uuid4()), "scene_id": str(uuid4())}
+    legacy = CatalogItem.model_validate(value)
+    assert legacy.kind == "unknown" and legacy.thumbnail_url is None
+    item = CatalogItem.model_validate({
+        **value, "kind": kind,
+        "thumbnail_url": "https://lh3.googleusercontent.com/synthetic-thumb=w320",
+    })
+    assert item.kind == kind
+    assert item.thumbnail_url.endswith("=w320")
+
+
+@pytest.mark.parametrize("url", [
+    "http://lh3.googleusercontent.com/thumb",
+    "https://lh3.googleusercontent.com.evil.invalid/thumb",
+    "https://user@lh3.googleusercontent.com/thumb",
+    "https://lh3.googleusercontent.com:443/thumb",
+    "https://lh3.googleusercontent.com/thumb#fragment",
+    "https://lh3.googleusercontent.com/",
+    "https://lh3.googleusercontent.com/thumb\n",
+    "https://lh3.googleusercontent.com/thumb with space",
+    "https://lh3.googleusercontent.com/" + "x" * 8192,
+])
+def test_catalog_rejects_unsafe_thumbnail(url):
+    with pytest.raises(ValidationError):
+        CatalogItem.model_validate({
+            "media_id": str(uuid4()), "scene_id": str(uuid4()), "thumbnail_url": url,
+        })
 
 
 def setup():
@@ -80,7 +111,7 @@ async def test_manager_rejects_invalid_response(change):
     elif change == "state":
         raw["state"] = "submitted_unverified"
     elif change == "kind":
-        raw["items"][0]["kind"] = "image"
+        raw["items"][0]["kind"] = "audio"
     elif change == "source":
         raw["source"] = "other"
     elif change == "oversized":

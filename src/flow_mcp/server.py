@@ -150,7 +150,8 @@ def create_server(
 
     @app.tool(
         description="Read remote media referenced by project scenes, not all project media. "
-        "Kinds and completeness remain unknown. Limit 1..100; truncated is local only, "
+        "Returns image/video kind when identified, otherwise unknown, and optional temporary "
+        "thumbnail_url. Completeness remains unknown. Limit 1..100; truncated is local only, "
         "no cursor or automatic pagination. No generation, downloads or ownership ledger.",
         annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=True),
     )
