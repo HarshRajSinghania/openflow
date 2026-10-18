@@ -42,7 +42,16 @@ def create_app(
         async with backend_lifespan(manager, port, backend):
             yield None
 
-    app = FastAPI(title="OpenFlow API", version="0.1.0", lifespan=lifespan)
+    description = (
+        "Backend: browser. Uses a managed Chromium session authenticated through "
+        "manual Google login with openflow setup. No extension pairing is required."
+        if backend == "browser"
+        else "Backend: extension (legacy). Requires manual approval of the pairing "
+        "code shown in the extension and selection of a Flow tab."
+    )
+    app = FastAPI(
+        title="OpenFlow API", version="0.1.0", description=description, lifespan=lifespan
+    )
 
     def fail(error: Exception) -> HTTPException:
         status, message = error_status(error)
@@ -65,11 +74,11 @@ def create_app(
             "pending_pairings": manager.pairings.listed(),
         }
 
-    @app.get("/pairings")
+    @app.get("/pairings", include_in_schema=backend == "extension")
     async def pairings() -> dict[str, object]:
         return {"pending_pairings": manager.pairings.listed()}
 
-    @app.post("/pairings/{pairing_id}/approve")
+    @app.post("/pairings/{pairing_id}/approve", include_in_schema=backend == "extension")
     async def approve(pairing_id: str) -> dict[str, object]:
         try:
             return await manager.pairings.approve(pairing_id)
@@ -86,7 +95,7 @@ def create_app(
     class SelectBody(StrictModel):
         tab_id: TabId
 
-    @app.post("/connections/{connection_id}/select")
+    @app.post("/connections/{connection_id}/select", include_in_schema=backend == "extension")
     async def select(connection_id: str, body: SelectBody) -> dict[str, object]:
         try:
             return await manager.select(connection_id, body.tab_id)
