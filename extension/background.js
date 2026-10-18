@@ -209,7 +209,7 @@ async function select(tabId, notify = true) {
   return scope;
 }
 
-async function createProject(scope, revision, diagnostics = false) {
+async function createProject(scope, revision, diagnostics = false, title = "OpenFlow project") {
   if (scope.origin !== "https://flow.google.com" || scope.project_id !== null) throw new Error("invalid_request");
   const account = await chrome.scripting.executeScript({
     target: {tabId: scope.tab_id, documentIds: [scope.document_id]}, world: "ISOLATED", func: inspectPage
@@ -219,7 +219,7 @@ async function createProject(scope, revision, diagnostics = false) {
   if (!email) return {state: "not_submitted", scope, error: "account_evidence_required"};
   const results = await chrome.scripting.executeScript({
     target: {tabId: scope.tab_id, documentIds: [scope.document_id]}, world: "MAIN",
-    func: flowOperation, args: ["create_project", {scope, ...(diagnostics ? {diagnostics: true} : {})}]
+    func: flowOperation, args: ["create_project", {scope, title, ...(diagnostics ? {diagnostics: true} : {})}]
   });
   if (revision !== epoch || results.length !== 1 || results[0].frameId !== 0 || results[0].documentId !== scope.document_id) throw new Error("scope_changed");
   await inspect(scope.tab_id, scope);
@@ -250,7 +250,7 @@ async function extensionFingerprint() {
 }
 
 async function dispatch(message) {
-  if (message.operation === "capabilities") return {build: "operational-bench-2", source_digest: await extensionFingerprint(), operations: ["probe", "reload_extension", "reload_tab", "create_project", "upload", "generate_image", "generate_video", "poll", "upscale_image", "upscale_video"], model_availability: "configured_not_live_verified", upscale: "experimental", video_4k: "unsupported"};
+  if (message.operation === "capabilities") return {build: "operational-bench-2", source_digest: await extensionFingerprint(), operations: ["list_project_media", "probe", "reload_extension", "reload_tab", "create_project", "upload", "generate_image", "generate_video", "poll", "upscale_image", "upscale_video"], model_availability: "configured_not_live_verified", upscale: "experimental", video_4k: "unsupported"};
   if (message.operation === "reload_extension") {
     setTimeout(() => chrome.runtime.reload(), 250);
     return {reloading: true};
@@ -358,7 +358,7 @@ async function dispatch(message) {
     if (revision !== epoch) throw new Error("scope_changed");
     return {scope, ...results[0].result, captchaStatus: native[0].result, source: "home_dom_read_only"};
   }
-  if (message.operation === "create_project") return createProject(scope, revision, message.params.diagnostics === true);
+  if (message.operation === "create_project") return createProject(scope, revision, message.params.diagnostics === true, message.params.title);
   if (["inspect", "refresh_account"].includes(message.operation)) {
     let opened = false;
     const panel = async action => {

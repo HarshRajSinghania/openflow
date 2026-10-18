@@ -2,9 +2,9 @@ import argparse
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from pydantic import ValidationError
 
 from flow_mcp.bridge import load_secret
@@ -16,6 +16,7 @@ from flow_mcp.operations import (
     Identifier,
     ImageInput,
     ImageUpscaleInput,
+    ProjectTitle,
     UploadInput,
     VideoInput,
     VideoUpscaleInput,
@@ -116,18 +117,43 @@ def create_app(
         except Exception as error:
             raise fail(error) from None
 
+    @app.get("/projects/{project_id}/media")
+    async def list_project_media(
+        project_id: Identifier, connection_id: Identifier,
+        limit: Annotated[int, Query(ge=1, le=100)] = 100
+    ) -> dict[str, object]:
+        try:
+            return await manager.list_project_media(connection_id, project_id, limit)
+        except Exception as error:
+            raise fail(error) from None
+
     class PreviewBody(StrictModel):
         connection_id: Identifier
         confirm: bool = False
         preview_id: Identifier | None = None
         diagnostics: bool = False
+        title: ProjectTitle = "OpenFlow project"
 
     @app.post("/projects/preview")
     @app.post("/projects")
     async def create_preview(body: PreviewBody) -> dict[str, object]:
         try:
             return await operations.create_project(
-                body.connection_id, body.confirm, body.preview_id, body.diagnostics
+                body.connection_id, body.confirm, body.preview_id, body.diagnostics, body.title
+            )
+        except Exception as error:
+            raise fail(error) from None
+
+    class DeleteProjectBody(StrictModel):
+        connection_id: Identifier
+        confirm: bool = False
+        preview_id: Identifier | None = None
+
+    @app.post("/projects/{project_id}/delete")
+    async def delete_project(project_id: Identifier, body: DeleteProjectBody) -> dict[str, object]:
+        try:
+            return await operations.delete_project(
+                body.connection_id, project_id, body.confirm, body.preview_id
             )
         except Exception as error:
             raise fail(error) from None

@@ -222,6 +222,24 @@ class Manager:
         if verify is not None:
             await verify(scope)
 
+    async def observe(self, session: Session, scope: Scope) -> Observation:
+        """Private identity read; no credits query or account panel."""
+        observe = getattr(session.socket, "observe", None)
+        if not getattr(session.socket, "supports_project_deletion", False) or observe is None:
+            raise BridgeError("delete_project_unsupported_managed_browser_only")
+        epoch = session.generation
+        try:
+            await self.verify_scope(session, scope)
+            result = Observation.model_validate(await observe(scope))
+        except ValidationError:
+            raise BridgeError("invalid_account_observation") from None
+        if (epoch != session.generation or session.selected != scope or not session.alive
+                or result.scope != scope):
+            raise BridgeError("scope_changed")
+        if not result.email or not result.email_confirmed or result.observed_at is None:
+            raise BridgeError("account_evidence_required")
+        return result
+
     async def projects(self, connection_id: str) -> dict[str, object]:
         session = self.resolve(connection_id)
         async with session.lock:
@@ -232,6 +250,45 @@ class Manager:
             return await self.request(
                 session, "list_projects", {"scope": scope.model_dump()}, deadline_seconds=45
             )
+
+    async def list_project_media(
+        self, connection_id: str, project_id: str, limit: int = 100
+    ) -> dict[str, object]:
+        from pydantic import TypeAdapter
+
+        from flow_mcp.operations import CatalogInput, Identifier, ProjectMediaCatalog
+
+        project_id = TypeAdapter(Identifier).validate_python(project_id)
+        input = CatalogInput(limit=limit)
+        session = self.resolve(connection_id)
+        async with session.lock:
+            await self.prepare_project(session, project_id)
+            scope = session.selected
+            if (scope is None or scope.origin != "https://flow.google.com"
+                    or scope.project_id is None
+                    or scope.project_id.lower() != project_id.lower()):
+                raise BridgeError("project_scope_mismatch")
+            epoch = session.generation
+            await self.verify_scope(session, scope)
+            raw = await self.request(
+                session, "list_project_media",
+                {"scope": scope.model_dump(), "input": input.model_dump()},
+                deadline_seconds=190,
+            )
+            try:
+                catalog = ProjectMediaCatalog.model_validate(raw)
+            except ValidationError:
+                raise BridgeError("invalid_catalog_response") from None
+            if epoch != session.generation or session.selected != scope or catalog.scope != scope:
+                self.invalidate(session)
+                raise BridgeError("scope_changed")
+            await self.verify_scope(session, scope)
+            if epoch != session.generation or session.selected != scope:
+                self.invalidate(session)
+                raise BridgeError("scope_changed")
+            if len(catalog.items) > input.limit:
+                raise BridgeError("invalid_catalog_response")
+            return {"connection_id": session.id, **catalog.model_dump()}
 
     async def select(self, connection_id: str | None, tab_id: int) -> dict[str, object]:
         session = self.resolve(connection_id)

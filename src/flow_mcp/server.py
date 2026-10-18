@@ -15,9 +15,11 @@ from flow_mcp.managed import backend_lifespan
 from flow_mcp.manager import BridgeError, Manager
 from flow_mcp.models import TabId
 from flow_mcp.operations import (
+    CatalogLimit,
     Identifier,
     ImageInput,
     ImageUpscaleInput,
+    ProjectTitle,
     VideoInput,
     VideoUpscaleInput,
 )
@@ -146,6 +148,18 @@ def create_server(
     async def refresh_account(connection_id: str | None = None) -> dict[str, object]:
         return await safe(manager.account(connection_id, refresh=True))
 
+    @app.tool(
+        description="Read remote media referenced by project scenes, not all project media. "
+        "Returns image/video kind when identified, otherwise unknown, and optional temporary "
+        "thumbnail_url. Completeness remains unknown. Limit 1..100; truncated is local only, "
+        "no cursor or automatic pagination. No generation, downloads or ownership ledger.",
+        annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=True),
+    )
+    async def list_project_media(
+        connection_id: Identifier, project_id: Identifier, limit: CatalogLimit = 100
+    ) -> dict[str, object]:
+        return await safe(manager.list_project_media(connection_id, project_id, limit))
+
     @app.tool(description="List projects by HTTPS; managed browser returns to Flow home.")
     async def list_projects(connection_id: Identifier) -> dict[str, object]:
         return await safe(manager.projects(connection_id))
@@ -154,17 +168,31 @@ def create_server(
         description="Preview creation in an exact pinned Flow home tab. After human approval, "
         "confirm with the same preview_id. Sends jHPbke once; "
         "managed browser then opens the project; "
-        "uncertain outcomes are never resubmitted. No paid generation."
+        "uncertain outcomes are never resubmitted. Optional title defaults to OpenFlow project. "
+        "Use the same title on confirmation. No paid generation."
     )
     async def create_project(
         connection_id: Identifier,
         confirm: bool = False,
         preview_id: Identifier | None = None,
         diagnostics: bool = False,
+        title: ProjectTitle = "OpenFlow project",
     ) -> dict[str, object]:
         return await safe(
-            operations.create_project(connection_id, confirm, preview_id, diagnostics)
+            operations.create_project(connection_id, confirm, preview_id, diagnostics, title)
         )
+
+    @app.tool(
+        description="Preview irreversible project deletion (managed browser only). Requires "
+        "visible verified account and real title in home list (first 100). Show preview; "
+        "confirm same preview_id only after human approval. Never retry unknown outcomes.",
+        annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True, openWorldHint=True),
+    )
+    async def delete_project(
+        connection_id: Identifier, project_id: Identifier, confirm: bool = False,
+        preview_id: Identifier | None = None,
+    ) -> dict[str, object]:
+        return await safe(operations.delete_project(connection_id, project_id, confirm, preview_id))
 
     @app.tool(description="Disconnect one profile; never reroutes pending requests to another.")
     async def disconnect_connection(connection_id: str) -> dict[str, object]:
@@ -177,7 +205,8 @@ def create_server(
     @app.tool(
         description=(
             "Preview one image; confirmation consumes credits. "
-            "References must be uploaded/generated in this exact scope."
+            "References must be uploaded/generated in this exact scope. "
+            "Optional seed fixes the input seed, not guaranteed identical output."
         )
     )
     async def generate_image(

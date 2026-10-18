@@ -34,7 +34,10 @@ async def test_openapi_exposed():
         spec = response.json()
         assert isinstance(spec, dict)
         assert spec["openapi"] == "3.1.0"
-        assert spec["info"] == {"title": "OpenFlow API", "version": "0.1.0"}
+        assert set(spec["info"]) == {"title", "version", "description"}
+        assert spec["info"]["title"] == "OpenFlow API"
+        assert spec["info"]["version"] == "0.1.0"
+        assert "Backend: extension" in spec["info"]["description"]
         assert "/images" in spec["paths"]
         assert "/videos" in spec["paths"]
         assert "/images/upscale" in spec["paths"]
@@ -114,3 +117,73 @@ async def test_invalid_inputs_are_400_not_500():
         assert response.status_code == 422
         response = await client.post("/pairings/nope/approve")
         assert response.status_code == 409
+
+
+@pytest.mark.parametrize("title", [None, True, 1, "", " \t", "x" * 201])
+async def test_rest_rejects_invalid_project_titles(title):
+    async with make_client() as client:
+        for path in ("/projects", "/projects/preview"):
+            response = await client.post(path, json={"connection_id": str(uuid4()), "title": title})
+            assert response.status_code == 422
+
+@pytest.mark.parametrize("seed", [True, "42", 1.0, 1.5, 0, -1, 1_000_000_001])
+async def test_rest_rejects_invalid_image_seed(seed):
+    async with make_client() as client:
+        response = await client.post("/images", json={
+            "connection_id": str(uuid4()), "project_id": str(uuid4()),
+            "input": {"prompt": "x", "seed": seed},
+        })
+        assert response.status_code == 422
+
+@pytest.mark.parametrize("path", ["/projects", "/projects/preview"])
+async def test_rest_project_title_preview_confirmation(tmp_path, path):
+    import asyncio
+
+    from test_manager import reply
+    from test_operations import setup
+
+    manager, session, socket, scope, jobs, _ = setup(tmp_path)
+    home = scope.model_copy(update={"project_id": None})
+    session.selected = home
+    app = create_app(manager, 19333, jobs)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        body = {"connection_id": session.id, "title": "Título REST"}
+        preview = (await client.post(path, json=body)).json()
+        assert preview["preview"]["title"] == body["title"]
+        confirmation = {**body, "confirm": True, "preview_id": preview["job_id"]}
+        mismatch = await client.post(path, json={**confirmation, "title": "changed"})
+        assert mismatch.status_code == 409
+        assert socket.sent.empty()
+        task = asyncio.create_task(client.post(path, json=confirmation))
+        request = await socket.sent.get()
+        assert request["params"]["title"] == body["title"]
+        reply(manager, session, request, {
+            "state": "completed", "scope": home.model_dump(), "selected": scope.model_dump(),
+        })
+        assert (await task).json()["state"] == "completed"
+
+@pytest.mark.parametrize("seed", [None, 1, 1_000_000_000])
+async def test_rest_image_seed_preview_confirmation(tmp_path, seed):
+    import asyncio
+
+    from test_manager import reply
+    from test_operations import setup
+
+    manager, session, socket, scope, jobs, _ = setup(tmp_path)
+    app = create_app(manager, 19333, jobs)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        body = {"connection_id": session.id, "project_id": scope.project_id,
+                "input": {"prompt": "x", "seed": seed}}
+        preview = (await client.post("/images", json=body)).json()
+        assert preview["preview"]["seed"] == seed
+        task = asyncio.create_task(client.post("/images", json={
+            **body, "confirm": True, "preview_id": preview["job_id"],
+        }))
+        request = await socket.sent.get()
+        assert request["params"]["input"]["seed"] == seed
+        reply(manager, session, request, {"scope": scope.model_dump(), "state": "not_submitted"})
+        assert (await task).json()["state"] == "not_submitted"

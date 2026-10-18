@@ -85,3 +85,39 @@ class Jobs:
             for (value,) in rows
             for asset in json.loads(value).get("assets", [])
         )
+
+    def delete_in_flight(self, connection: str, project_id: str) -> bool:
+        rows = self.db.execute(
+            "SELECT input FROM jobs WHERE connection=? AND operation='delete_project' "
+            "AND state IN ('submitting', 'submitted_unverified')", (connection,),
+        )
+        return any(json.loads(value).get("project_id") == project_id for (value,) in rows)
+
+    def create_delete_preview(
+        self, connection: str, scope: Scope, value: dict[str, Any]
+    ) -> str:
+        try:
+            self.db.execute("BEGIN IMMEDIATE")
+            if self.delete_in_flight(connection, value["project_id"]):
+                raise ValueError("delete_project_outcome_unknown_do_not_retry")
+            return self.create(connection, scope, "delete_project", value)
+        except BaseException:
+            self.db.rollback()
+            raise
+
+    def claim_delete(self, identity: str, connection: str, project_id: str) -> bool:
+        """One-use claim, including target exclusion across SQLite connections."""
+        try:
+            self.db.execute("BEGIN IMMEDIATE")
+            if self.delete_in_flight(connection, project_id):
+                raise ValueError("delete_project_outcome_unknown_do_not_retry")
+            changed = self.db.execute(
+                "UPDATE jobs SET state='submitting', updated=? "
+                "WHERE id=? AND connection=? AND operation='delete_project' AND state='preview'",
+                (datetime.now(UTC).isoformat(), identity, connection),
+            ).rowcount
+            self.db.commit()
+            return changed == 1
+        except BaseException:
+            self.db.rollback()
+            raise

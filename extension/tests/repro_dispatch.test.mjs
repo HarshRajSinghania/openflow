@@ -115,3 +115,48 @@ test("operationErrorMatcher accepts RegExp, source string, and never returns a n
     assert.equal(typeof matcher.test, "function");
   }
 });
+
+
+test("real dispatch carries explicit image seed across serialized MAIN boundary", async () => {
+  const payload = [[`https://flow-content.google/image/${media}?Signature=test`]];
+  const body = ")]}'\n123\n" + JSON.stringify([["wrb.fr", "ogiZ0b", JSON.stringify(payload)]]) + "\n";
+  const world = makeMainWorld(body);
+  let inner;
+  world.fetch = async (url, spec) => {
+    inner = JSON.parse(JSON.parse(spec.body.get("f.req"))[0][0][1]);
+    return new Response(body);
+  };
+  const context = dispatchContext(world, operationErrorSource);
+  const seeded = {...request, params: {...request.params, input: {...request.params.input, seed: 987654321}}};
+  const result = await vm.runInContext(`dispatch(${JSON.stringify(seeded)})`, context);
+  assert.equal(result.state, "completed");
+  assert.equal(inner[1][0][3], 987654321);
+});
+
+test("real project dispatch forwards title through createProject helper and MAIN RPC", async () => {
+  const source = readFileSync(new URL("../background.js", import.meta.url), "utf8");
+  const helper = source.slice(source.indexOf("async function createProject("), source.indexOf("async function connect()"));
+  const home = {...scope, project_id: null};
+  const body = ")]}'\n123\n" + JSON.stringify([["wrb.fr", "jHPbke", JSON.stringify([project])]]) + "\n";
+  const world = makeMainWorld(body);
+  world.location.pathname = "/";
+  let inner;
+  world.fetch = async (url, spec) => {
+    inner = JSON.parse(JSON.parse(spec.body.get("f.req"))[0][0][1]);
+    return new Response(body);
+  };
+  const execute = realExecuteScript(world);
+  const context = vm.createContext({
+    sameScope, validRequest, operationErrorSource, flowOperation, inspectPage() {},
+    inspect: async () => home,
+    chrome: {
+      tabs: {get: async () => ({url: "https://flow.google.com/", status: "complete", discarded: false})},
+      scripting: {executeScript: async spec => spec.world === "MAIN" ? execute(spec) :
+        [{frameId: 0, documentId: "doc", result: {email: "test@example.com", origin: home.origin, pathname: "/"}}]},
+    },
+  });
+  vm.runInContext(`let selected = ${JSON.stringify(home)}; let derived = null; let epoch = 0; ${helper}`, context);
+  const message = {type: "request", id: media, operation: "create_project", params: {scope: home, title: "Título dispatch"}};
+  assert.equal((await vm.runInContext(`dispatch(${JSON.stringify(message)})`, context)).state, "completed");
+  assert.deepEqual(inner, ["projects/*", [null, ["Título dispatch"]], [null, 22]]);
+});

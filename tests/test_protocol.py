@@ -72,7 +72,9 @@ async def test_mcp_stdio_with_simulated_extension(tmp_path):
                 "get_account_status",
                 "refresh_account",
                 "create_project",
+                "delete_project",
                 "list_projects",
+                "list_project_media",
                 "disconnect_connection",
                 "list_pairing_requests",
                 "approve_connection",
@@ -169,7 +171,7 @@ async def test_mcp_stdio_with_simulated_extension(tmp_path):
                 arguments = {
                     "connection_id": identity,
                     "project_id": scope["project_id"],
-                    "input": {"prompt": "synthetic test"},
+                    "input": {"prompt": "synthetic test", "seed": 42},
                 }
                 preview = await client.call_tool("generate_image", arguments)
                 preview_data = json.loads(preview.content[0].text)
@@ -202,6 +204,7 @@ async def test_mcp_stdio_with_simulated_extension(tmp_path):
                 request = await responder
                 assert request["operation"] == "generate_image"
                 assert request["params"]["scope"] == scope
+                assert request["params"]["input"]["seed"] == 42
                 assert json.loads(confirmed.content[0].text)["state"] == "completed"
                 repeated = await client.call_tool(
                     "generate_image",
@@ -225,9 +228,12 @@ async def test_mcp_stdio_with_simulated_extension(tmp_path):
                 responder = asyncio.create_task(respond(home))
                 await client.call_tool("select_flow_tab", {"tab_id": 5})
                 await responder
-                preview = await client.call_tool("create_project", {"connection_id": identity})
+                preview = await client.call_tool("create_project", {
+                    "connection_id": identity, "title": "Título MCP",
+                })
                 creation = json.loads(preview.content[0].text)
                 assert creation["preview"]["rpc"] == "jHPbke"
+                assert creation["preview"]["title"] == "Título MCP"
                 assert creation["preview"]["navigation"] is False
                 derived = {**home, "project_id": str(uuid4())}
                 responder = asyncio.create_task(respond({
@@ -235,9 +241,11 @@ async def test_mcp_stdio_with_simulated_extension(tmp_path):
                 }))
                 result = await client.call_tool("create_project", {
                     "connection_id": identity, "confirm": True,
-                    "preview_id": creation["job_id"],
+                    "preview_id": creation["job_id"], "title": "Título MCP",
                 })
-                assert (await responder)["operation"] == "create_project"
+                request = await responder
+                assert request["operation"] == "create_project"
+                assert request["params"]["title"] == "Título MCP"
                 assert json.loads(result.content[0].text)["state"] == "completed"
                 preview = await client.call_tool("generate_image", {
                     "connection_id": identity, "project_id": derived["project_id"],

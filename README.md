@@ -169,7 +169,63 @@ No Windows, use um caminho como `C:\\Projects\\openflow` no JSON.
 5. Repita a chamada com as mesmas entradas, `confirm=true` e **`preview_id` igual ao `job_id` retornado na prévia**.
 6. Consulte `get_job` com `refresh=true`, quando necessário, e use `download` após `completed`.
 
-`create_project` também usa prévia e confirmação; após a criação, o navegador abre o novo projeto. `get_account_status` e `refresh_account` verificam a conta visível e consultam o saldo por HTTPS no navegador gerenciado, sem abrir painéis. O retorno informa `credits`, `credits_source` e `credits_freshness`; uma leitura indisponível retorna `null`, nunca um saldo estimado ou anterior.
+`create_project` também usa prévia e confirmação; após a criação, o navegador abre o novo projeto. O parâmetro opcional `title` (também no REST `POST /projects` e `/projects/preview`) aceita somente string de 1 a 200 caracteres, não apenas espaços; o padrão é `"OpenFlow project"`. Repita o mesmo título na confirmação.
+
+`generate_image.input.seed` é opcional: `null` ou omitido mantém a escolha aleatória atual; um inteiro estrito entre `1` e `1000000000` fixa o seed enviado ao Flow. Booleanos, strings e números fracionários são rejeitados. Repita o mesmo seed na confirmação; isso não garante imagens idênticas entre mudanças do modelo. Vídeos não aceitam esse parâmetro.
+
+`get_account_status` e `refresh_account` verificam a conta visível e consultam o saldo por HTTPS no navegador gerenciado, sem abrir painéis. O retorno informa `credits`, `credits_source` e `credits_freshness`; uma leitura indisponível retorna `null`, nunca um saldo estimado ou anterior.
+
+### Catálogo de projetos e mídias
+
+`list_projects(connection_id)` e REST `GET /projects?connection_id=<uuid>` mantêm a listagem remota de ID/título dos primeiros 100 projetos. `has_more` informa possível continuação; esta versão não expõe cursor nem garante todas as páginas. Listar projetos pode navegar para a home e invalidar prévias anteriores.
+
+MCP `list_project_media(connection_id, project_id, limit=100)` e REST
+`GET /projects/{project_id}/media?connection_id=<uuid>&limit=100` consultam
+as mídias referenciadas por cenas do projeto, sem geração nem criação de jobs.
+O backend gerenciado prepara o projeto sob lock; a extensão exige a aba do projeto
+já selecionada. Ambos revalidam escopo/documento.
+
+A resposta contém `items` com `media_id`, `scene_id`, `kind` (`image`, `video` ou
+`unknown`) e `thumbnail_url` opcional, além de `source: "remote_project_scenes"`,
+`completeness: "unknown"` e `truncated`. O tipo usa as estruturas de mídia
+identificadas no retorno do projeto, não os marcadores `CAE`/`CAI` nem o formato da
+miniatura. Estruturas ausentes ou contraditórias mantêm `unknown`.
+
+Miniaturas são URLs HTTPS verificadas do host observado `lh3.googleusercontent.com`;
+URLs ausentes ou inválidas resultam em `null`. Podem expirar ou exigir autenticação:
+não publique nem registre esses links em logs. O catálogo não baixa miniaturas nem
+faz uma chamada adicional por item. Não retorna a URL do arquivo original.
+
+Não representa todas as mídias ou uploads do projeto; uma mídia pode aparecer em
+mais de uma cena. Títulos, prompts e outros campos privados não são expostos.
+A listagem e as miniaturas não concedem ownership para referências, downloads ou upscale.
+
+`limit` aceita 1 a 100. `truncated` indica somente corte local da resposta retornada,
+não completude remota. Não há cursor, snapshot persistido ou paginação automática;
+repetir a chamada obtém nova leitura. Respostas com mais de 1000 cenas ou mídias,
+IDs inválidos, associação ambígua ou projeto divergente são rejeitadas integralmente,
+inclusive registros depois do limite. IDs de mídias com sufixo `_upsampled` são aceitos.
+
+### Exclusão de projeto (somente navegador gerenciado)
+
+`delete_project(connection_id, project_id, confirm=false, preview_id=null)` cria prévia
+com título real e alvo. **Exclusão é irreversível: apresente título e ID ao usuário e
+aguarde aprovação explícita antes de `confirm=true` com o mesmo `preview_id`.**
+Um booleano de confirmação não verifica sozinho aprovação humana.
+
+REST: `POST /projects/{project_id}/delete`, corpo
+`{"connection_id":"<uuid>","confirm":false,"preview_id":null}`; confirme com o ID da prévia.
+Conta visível verificada, mesmo documento home e título são obrigatórios na confirmação;
+identidade desconhecida bloqueia a operação. A leitura não consulta créditos. E-mail não é
+persistido pelo job; hash local fica apenas nas entradas privadas, nunca no retorno público.
+A lista home é limitada a 100 projetos: alvo ausente falha sem afirmar inexistência.
+Títulos com 200 caracteres ou mais são recusados, pois a listagem atual pode truncá-los.
+
+Transporte observado: `QI2zvc ["projects/<project_id>"]`, resposta `[]` HTTP 200.
+Antes da exclusão, `UpteDb` confere novamente título/alvo e a conta visível é revalidada.
+Prévia é de uso único. `submitting`/`submitted_unverified` bloqueiam novas prévias do mesmo
+alvo e conexão; nunca reenvie resultado incerto. Sucesso invalida seleção/documento sem
+apagar histórico de jobs. Extensão legacy não suporta exclusão; retorna erro explícito.
 
 ### MCP via HTTP
 
@@ -263,7 +319,9 @@ O download aceita somente resultados de um job concluído e do escopo correspond
 | `GET` | `/connections/{connection_id}` | Contexto do navegador |
 | `GET` | `/connections/{connection_id}/account` | Evidências de conta; `refresh=true` para atualizar |
 | `GET` | `/projects` | Listar projetos com `connection_id` |
-| `POST` | `/projects` | Preparar ou confirmar criação de projeto |
+| `POST` | `/projects` | Preparar ou confirmar criação de projeto; `title` opcional |
+| `GET` | `/projects/{project_id}/media` | Catálogo parcial de mídias ligadas a cenas; `connection_id` e `limit` |
+| `POST` | `/projects/{project_id}/delete` | Preparar ou confirmar exclusão permanente; somente navegador gerenciado |
 | `POST` | `/images`, `/videos` | Preparar ou confirmar geração |
 | `POST` | `/images/upscale`, `/videos/upscale` | Preparar ou confirmar upscale |
 | `POST` | `/uploads` | Preparar ou confirmar upload PNG/JPEG/WebP, até 8 MiB |
