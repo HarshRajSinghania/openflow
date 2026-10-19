@@ -1,86 +1,60 @@
+<p align="center">
+  <img src="docs/assets/openflow-banner.png" alt="Um agente de IA conectado ao Google Flow por meio do OpenFlow, com MCP e REST como interfaces de acesso e quadros conceituais de imagem e vídeo." width="100%">
+</p>
+
 # OpenFlow
+
+### Seu agente de IA conectado ao Google Flow.
 
 [![MIT](https://img.shields.io/github/license/codexfast/openflow)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB)](pyproject.toml)
 [![Estrelas no GitHub](https://img.shields.io/github/stars/codexfast/openflow?style=flat)](https://github.com/codexfast/openflow/stargazers)
 
-OpenFlow é um projeto open source que permite usar os recursos do Google Flow disponíveis na sua assinatura Google AI Pro por meio de um servidor **MCP** ou de uma **API REST**.
+[Começar](#setup) · [MCP](#mcp) · [API REST](#rest) · [Como funciona](#architecture) · [Contribuir](#contribuição)
 
-Agentes de IA e aplicações podem gerar imagens e vídeos usando sua conta e os créditos do plano, sem enviar cada pedido manualmente na interface do Flow. O projeto também oferece operações de projetos, upload, upscale e download.
+Transforme pedidos ao seu agente em imagens e vídeos no Google Flow. **OpenFlow é a ponte:** um projeto open source que conecta agentes e aplicações à sua conta por **MCP** ou **API REST**, usando os recursos e créditos disponíveis no seu plano Google, como o Google AI Pro.
 
-A integração usa uma sessão autenticada em um Chromium gerenciado, com perfil local persistente. O login é feito manualmente no navegador; depois, o servidor pode reutilizar a sessão em headless. **Não é necessário instalar extensão.**
+- **Crie com seu agente.** Geração de imagens e vídeos, referências e upscale, conforme o acesso da conta.
+- **Escolha sua interface.** Ferramentas MCP para agentes; REST para aplicações e scripts. Mesmo serviço, duas formas de acesso.
+- **Confira antes de enviar.** Prévia, confirmação explícita e histórico de jobs persistido em SQLite.
+
+O login acontece diretamente no Google, em um Chromium dedicado com perfil local persistente. Depois, OpenFlow reutiliza a sessão em headless. **Sem extensão no fluxo padrão e sem enviar cada pedido manualmente na interface.**
 
 > **Não é uma API oficial do Google.** O projeto utiliza interfaces internas do Flow e não tem afiliação ou endosso do Google. A automação pode contrariar termos ou políticas do serviço e resultar em restrições, suspensão ou banimento da conta. Use por sua conta e risco. Acesso, modelos e créditos continuam sujeitos ao plano e à disponibilidade do serviço.
 
-O backend de navegador gerenciado é experimental. Mudanças no Flow podem interromper a integração.
+> **Experimental.** Mudanças no Flow podem interromper a integração. A arte de abertura é conceitual, não uma captura de execução; veja a [procedência](docs/assets/README.md).
 
-<a id="architecture"></a>
-## Como funciona
+## Do pedido à geração
 
-**Seu agente ou aplicação chama o OpenFlow. O OpenFlow acessa o Google Flow pelo navegador autenticado com a sua conta.**
+**Exemplo ilustrativo de conversa**, não uma execução real. Requer cliente MCP configurado, conta autenticada e projeto selecionado.
 
-```mermaid
-flowchart TB
-    agent["Agente de IA"] -->|MCP| server
-    app["Aplicação ou script"] -->|REST| server
+> **Você:** Crie uma imagem cinematográfica de uma cabana nas montanhas ao amanhecer, em 16:9.
+>
+> **Agente:** Preparei uma prévia com esse prompt e o projeto selecionado. O envio pode consumir créditos do Google Flow. Confirma?
+>
+> **Você:** Confirmo.
+>
+> **Agente:** Agora envio a operação confirmada e acompanho o job. O download fica disponível quando a geração termina com sucesso.
 
-    subgraph host["Máquina que executa o OpenFlow"]
-        server["OpenFlow · MCP ou API REST<br/>Operações e jobs persistentes"]
-        browser["Chromium gerenciado<br/>Sua conta Google autenticada<br/>Perfil dedicado e sessão persistente"]
-        server <-->|"Chamadas e respostas no contexto da página"| browser
-    end
-
-    person["Você · login manual no setup"] -.-> browser
-
-    subgraph google["Serviço externo · Google"]
-        flow["Google Flow<br/>Geração de imagens e vídeos<br/>Seu plano e seus créditos"]
-    end
-
-    browser <-->|"HTTPS autenticado · interfaces internas"| flow
-    server -->|"Status, mídia e download"| result["Resultados para o agente ou aplicação"]
-```
-
-MCP e REST são **duas formas de acessar o mesmo serviço**, não provedores de geração separados. O Chromium mantém a sessão e executa as chamadas autenticadas; **quem processa a geração é o Google Flow**. O OpenFlow acompanha os jobs e disponibiliza os resultados ao cliente.
-
-- **Login direto no Google.** Você informa senha e 2FA somente no site, durante `openflow setup`, nunca ao agente. Depois, a sessão pode ser reutilizada em headless. Proteja o perfil local: ele contém os dados de autenticação.
-- **Sem extensão no fluxo padrão.** O OpenFlow usa um navegador próprio com perfil persistente, sem compartilhar seu perfil pessoal. O diagrama representa esse backend gerenciado; MCP e REST são alternativas, não duas instâncias simultâneas no mesmo perfil.
-- **Sem cliques de geração.** As operações são chamadas HTTPS no contexto autenticado; a navegação abre o projeto solicitado antes de preparar a prévia.
-- **Projeto obrigatório.** A confirmação exige os mesmos dados, projeto e documento da prévia. Se o contexto mudar, prepare uma nova prévia; o sistema não navega para ressuscitar a anterior.
-- **Submissões incertas.** Jobs de resultado incerto ficam identificados para verificação, não são automaticamente ressubmetidos.
+O agente prepara com `confirm=false` e só envia após sua aprovação, repetindo as mesmas entradas com `confirm=true` e `preview_id` igual ao `job_id` da prévia. **Prévia não gera mídia nem substitui autorização humana.** [Ver sequência MCP](#mcp).
 
 ## Índice
 
-- [Funcionalidades](#features)
 - [Requisitos](#requisitos)
 - [Instalação e login](#setup)
+- [Funcionalidades](#features)
+- [Como funciona](#architecture)
 - [Uso com MCP](#mcp)
 - [Uso com REST](#rest)
-- [Como funciona](#architecture)
 - [Segurança, conta e créditos](#security)
 - [Compatibilidade e limitações](#compatibilidade-e-limitações)
 - [Solução de problemas](#solução-de-problemas)
+- [Backend legado](#backend-legado-extensão)
 - [Desenvolvimento](#desenvolvimento)
 - [Contribuição](#contribuição)
 - [Contribuidores](#contribuidores)
 - [Histórico de estrelas](#histórico-de-estrelas)
-- [Backend legado](#backend-legado-extensão)
 - [Créditos e licença](#créditos-e-licença)
-
-<a id="features"></a>
-## Funcionalidades
-
-| Recurso | Suporte |
-| --- | --- |
-| **Imagens** | Nano Banana Pro, Nano Banana 2.1 e Nano Banana Lite |
-| **Proporções de imagem** | `1:1`, `9:16`, `16:9`, `3:4`, `4:3`; até 4 referências |
-| **Vídeos Omni** | Texto, quadro inicial, inicial/final ou até 3 referências; 4, 6, 8 ou 10 s; 360p/720p |
-| **Vídeos Veo Lite** | Quadro inicial obrigatório, 8 s, 720p |
-| **Upscale** | Imagens 2K/4K conforme conta/plano; 4K exige Ultra. Vídeos 1080p com `scene_id` real |
-| **Projetos e mídia** | Listagem e criação de projetos, upload, consulta de jobs e download |
-| **Integrações** | MCP stdio/HTTP e REST com schemas OpenAPI |
-| **Controle** | Prévia/confirmação, contexto de projeto/documento e jobs persistentes em SQLite |
-
-Os modelos e recursos disponíveis dependem da conta e do plano. O nome Nano Banana 2.1 corresponde ao identificador `nano_banana_2` nos parâmetros da API.
 
 ## Requisitos
 
@@ -126,6 +100,56 @@ Feche a janela ou pressione Ctrl+C para encerrar o setup e liberar o perfil. O l
 | [Configuração MCP →](#mcp) | [Exemplo REST →](#rest) |
 
 **O servidor inicia o navegador headless automaticamente.** Não deixe `setup` ou `browser start` aberto em paralelo. MCP e REST são alternativas: execute um por vez com o mesmo perfil.
+
+<a id="features"></a>
+## Funcionalidades
+
+| Recurso | Suporte |
+| --- | --- |
+| **Imagens** | Nano Banana Pro, Nano Banana 2.1 e Nano Banana Lite |
+| **Proporções de imagem** | `1:1`, `9:16`, `16:9`, `3:4`, `4:3`; até 4 referências |
+| **Vídeos Omni** | Texto, quadro inicial, inicial/final ou até 3 referências; 4, 6, 8 ou 10 s; 360p/720p |
+| **Vídeos Veo Lite** | Quadro inicial obrigatório, 8 s, 720p |
+| **Upscale** | Imagens 2K/4K conforme conta/plano; 4K exige Ultra. Vídeos 1080p com `scene_id` real |
+| **Projetos e mídia** | Listagem e criação de projetos, upload, consulta de jobs e download |
+| **Integrações** | MCP stdio/HTTP e REST com schemas OpenAPI |
+| **Controle** | Prévia/confirmação, contexto de projeto/documento e jobs persistentes em SQLite |
+
+Os modelos e recursos disponíveis dependem da conta e do plano. O nome Nano Banana 2.1 corresponde ao identificador `nano_banana_2` nos parâmetros da API.
+
+<a id="architecture"></a>
+## Como funciona
+
+**Seu agente ou aplicação chama o OpenFlow. O OpenFlow acessa o Google Flow pelo navegador autenticado com a sua conta.**
+
+```mermaid
+flowchart TB
+    agent["Agente de IA"] -->|MCP| server
+    app["Aplicação ou script"] -->|REST| server
+
+    subgraph host["Máquina que executa o OpenFlow"]
+        server["OpenFlow · MCP ou API REST<br/>Operações e jobs persistentes"]
+        browser["Chromium gerenciado<br/>Sua conta Google autenticada<br/>Perfil dedicado e sessão persistente"]
+        server <-->|"Chamadas e respostas no contexto da página"| browser
+    end
+
+    person["Você · login manual no setup"] -.-> browser
+
+    subgraph google["Serviço externo · Google"]
+        flow["Google Flow<br/>Geração de imagens e vídeos<br/>Seu plano e seus créditos"]
+    end
+
+    browser <-->|"HTTPS autenticado · interfaces internas"| flow
+    server -->|"Status, mídia e download"| result["Resultados para o agente ou aplicação"]
+```
+
+MCP e REST são **duas formas de acessar o mesmo serviço**, não provedores de geração separados. O Chromium mantém a sessão e executa as chamadas autenticadas; **quem processa a geração é o Google Flow**. O OpenFlow acompanha os jobs e disponibiliza os resultados ao cliente.
+
+- **Login direto no Google.** Você informa senha e 2FA somente no site, durante `openflow setup`, nunca ao agente. Depois, a sessão pode ser reutilizada em headless. Proteja o perfil local: ele contém os dados de autenticação.
+- **Sem extensão no fluxo padrão.** O OpenFlow usa um navegador próprio com perfil persistente, sem compartilhar seu perfil pessoal. O diagrama representa esse backend gerenciado; MCP e REST são alternativas, não duas instâncias simultâneas no mesmo perfil.
+- **Sem cliques de geração.** As operações são chamadas HTTPS no contexto autenticado; a navegação abre o projeto solicitado antes de preparar a prévia.
+- **Projeto obrigatório.** A confirmação exige os mesmos dados, projeto e documento da prévia. Se o contexto mudar, prepare uma nova prévia; o sistema não navega para ressuscitar a anterior.
+- **Submissões incertas.** Jobs de resultado incerto ficam identificados para verificação, não são automaticamente ressubmetidos.
 
 <a id="clients"></a>
 <a id="mcp"></a>
