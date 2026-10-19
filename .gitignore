@@ -27,3 +27,7 @@ __pycache__/
 node_modules/
 /build/
 /dist/
+
+# Local analysis outputs and agent worktrees
+/graphify-out/
+/.claude/worktrees/
